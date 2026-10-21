@@ -11,7 +11,17 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-class MiniMaxClient(private var apiKey: String) {
+class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
+
+    companion object {
+        const val DEFAULT_KEY = "sk-cp-meaN0PHZdGi3-5gZffia9b6PyDIh27vyk54LwG6gw965dFLWoIHowFo19rTqoHdbxhaQezJlMMBgTEYhNni51sJnMWCcPHIKtCg4GRY-pGMmrXarNIxxGQA"
+    }
+
+    init {
+        if (apiKey.isBlank()) {
+            apiKey = DEFAULT_KEY
+        }
+    }
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)

@@ -32,6 +32,7 @@ class FactCheckForegroundService : LifecycleService() {
     private lateinit var mancheteScanner: MancheteScannerManager
     private var speechRecognitionManager: SpeechRecognitionManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var headlineJob: kotlinx.coroutines.Job? = null
 
     companion object {
         const val CHANNEL_ID = "tv_fact_check_channel"
@@ -52,7 +53,7 @@ class FactCheckForegroundService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         overlayManager = FactCheckOverlayManager(this)
-        miniMaxClient = MiniMaxClient("")
+        miniMaxClient = MiniMaxClient()
         sourcesManager = FactCheckSourcesManager()
         mancheteScanner = MancheteScannerManager()
         createNotificationChannel()
@@ -134,6 +135,31 @@ class FactCheckForegroundService : LifecycleService() {
             sourcesManager.refreshSourcesIfStale()
         }
 
+        // Monitoramento automático das MANCHETES e TARJAS da TV ao vivo em segundo plano (GloboNews / G1)
+        headlineJob?.cancel()
+        headlineJob = lifecycleScope.launch(Dispatchers.IO) {
+            val seenHeadlines = mutableSetOf<String>()
+            delay(12_000L) // Aguarda inicialização do app
+
+            while (isRunning) {
+                try {
+                    val headline = mancheteScanner.getTopBreakingHeadline()
+                    if (!headline.isNullOrBlank() && !seenHeadlines.contains(headline)) {
+                        seenHeadlines.add(headline)
+                        if (seenHeadlines.size > 50) {
+                            seenHeadlines.clear()
+                            seenHeadlines.add(headline)
+                        }
+                        Log.i("FactCheckService", "MANCHETE CAPTURADA DA TV EM TEMPO REAL: \"$headline\"")
+                        processLiveTranscript("MANCHETE EXIBIDA NA TELA DA TV: $headline")
+                    }
+                } catch (e: Exception) {
+                    Log.w("FactCheckService", "Erro na captura periódica de manchete: ${e.message}")
+                }
+                delay(35_000L)
+            }
+        }
+
         // Inicializa reconhecimento de voz contínuo para ouvir a transmissão da TV
         speechRecognitionManager = SpeechRecognitionManager(
             context = this,
@@ -203,6 +229,9 @@ class FactCheckForegroundService : LifecycleService() {
 
     private fun stopForegroundMonitoring() {
         isRunning = false
+
+        headlineJob?.cancel()
+        headlineJob = null
 
         speechRecognitionManager?.stopListening()
         speechRecognitionManager = null
