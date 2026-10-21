@@ -71,7 +71,11 @@ class FactCheckForegroundService : LifecycleService() {
         if (isRunning) return
 
         val notification = buildPersistentNotification()
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
         isRunning = true
         Log.i("FactCheckService", "Monitoramento em segundo plano iniciado na TV")
 

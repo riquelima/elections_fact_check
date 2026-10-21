@@ -7,6 +7,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Android TV APK
@@ -23,35 +26,36 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Accept Android Licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: Grant Execute Permission for Gradlew
-        run: chmod +x gradlew || true
+        run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TV-Fact-Checker-Debug-APK
+          name: TV-Fact-Checker-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0-${{ github.run_number }}
           name: TV Fact Checker v1.0.0 (Build ${{ github.run_number }})
           body: |
             ## 📺 TV Fact Checker AI - APK para Android TV
             
-            Compilado automaticamente via GitHub Actions.
+            Compilação automática concluída com sucesso!
             
             ### Como instalar na sua TV:
-            1. Baixe o arquivo `app-debug.apk` abaixo.
+            1. Baixe o arquivo **`app-debug.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
             4. Conceda a permissão de sobreposição de tela e microfone.
