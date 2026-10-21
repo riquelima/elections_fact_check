@@ -6,6 +6,7 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -30,10 +31,49 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
 
     private val gson = Gson()
     private val endpoint = "https://api.minimaxi.chat/v1/text/chatcompletion_v2"
+    private val asrEndpoint = "https://api.minimaxi.chat/v1/speech_to_text"
 
     fun updateApiKey(newKey: String) {
         if (newKey.isNotBlank()) {
             this.apiKey = newKey.trim()
+        }
+    }
+
+    /**
+     * Transcreve um trecho de áudio WAV via motor neural ASR da IA em tempo real.
+     */
+    suspend fun transcribeAudioChunk(wavBytes: ByteArray): String? = withContext(Dispatchers.IO) {
+        if (wavBytes.isEmpty() || apiKey.isBlank()) return@withContext null
+
+        val requestBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("model", "asr-1.0")
+            .addFormDataPart(
+                "file", "stream.wav",
+                wavBytes.toRequestBody("audio/wav".toMediaType())
+            )
+            .build()
+
+        val request = Request.Builder()
+            .url(asrEndpoint)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .post(requestBody)
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.e("MiniMaxClient", "Erro no ASR da IA: ${response.code} - ${response.message}")
+                    return@withContext null
+                }
+                val body = response.body?.string() ?: return@withContext null
+                val json = gson.fromJson(body, JsonObject::class.java)
+                val text = json.get("text")?.asString?.trim() ?: ""
+                return@withContext text
+            }
+        } catch (e: Exception) {
+            Log.e("MiniMaxClient", "Falha na transcrição neural: ${e.message}")
+            return@withContext null
         }
     }
 

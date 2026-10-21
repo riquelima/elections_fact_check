@@ -17,6 +17,7 @@ import com.factcheck.tv.R
 import com.factcheck.tv.api.FactCheckResult
 import com.factcheck.tv.api.MiniMaxClient
 import com.factcheck.tv.audio.SpeechRecognitionManager
+import com.factcheck.tv.audio.StreamingAudioRecordManager
 import com.factcheck.tv.overlay.FactCheckOverlayManager
 import com.factcheck.tv.sources.FactCheckSourcesManager
 import com.factcheck.tv.sources.MancheteScannerManager
@@ -30,6 +31,7 @@ class FactCheckForegroundService : LifecycleService() {
     private lateinit var miniMaxClient: MiniMaxClient
     private lateinit var sourcesManager: FactCheckSourcesManager
     private lateinit var mancheteScanner: MancheteScannerManager
+    private var streamingAudioManager: StreamingAudioRecordManager? = null
     private var speechRecognitionManager: SpeechRecognitionManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var headlineJob: kotlinx.coroutines.Job? = null
@@ -160,9 +162,10 @@ class FactCheckForegroundService : LifecycleService() {
             }
         }
 
-        // Inicializa reconhecimento de voz contínuo para ouvir a transmissão da TV
-        speechRecognitionManager = SpeechRecognitionManager(
+        // 1. Inicializa o Motor de Streaming de Áudio Contínuo (PCM 16kHz ininterrupto via AudioRecord)
+        streamingAudioManager = StreamingAudioRecordManager(
             context = this,
+            miniMaxClient = miniMaxClient,
             onStatusChanged = { statusText ->
                 overlayManager.updateAmbientStatus(statusText)
             },
@@ -170,7 +173,7 @@ class FactCheckForegroundService : LifecycleService() {
                 processLiveTranscript(spokenText)
             }
         )
-        speechRecognitionManager?.startListening()
+        streamingAudioManager?.startStreaming()
     }
 
     /**
@@ -232,6 +235,9 @@ class FactCheckForegroundService : LifecycleService() {
 
         headlineJob?.cancel()
         headlineJob = null
+
+        streamingAudioManager?.stopStreaming()
+        streamingAudioManager = null
 
         speechRecognitionManager?.stopListening()
         speechRecognitionManager = null

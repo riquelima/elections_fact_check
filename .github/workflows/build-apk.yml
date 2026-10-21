@@ -38,39 +38,39 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
           # Encontra o APK gerado e copia com o nome padronizado oficial
           APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$APK_FILE" TVFactChecker_v1.0.6.apk
-          ls -lh TVFactChecker_v1.0.6.apk
+          cp "$APK_FILE" TVFactChecker_v1.0.7.apk
+          ls -lh TVFactChecker_v1.0.7.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVFactChecker_v1.0.6
-          path: TVFactChecker_v1.0.6.apk
+          name: TVFactChecker_v1.0.7
+          path: TVFactChecker_v1.0.7.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.6
-          name: TV Fact Checker v1.0.6
+          tag_name: v1.0.7
+          name: TV Fact Checker v1.0.7
           body: |
-            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.0.6)
+            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.0.7)
             
-            Versão oficial compilada: **TVFactChecker_v1.0.6.apk**
+            Versão oficial compilada: **TVFactChecker_v1.0.7.apk**
             
-            ### 🚀 Correções Críticas da versão 1.0.6:
-            - **Fim do Travamento Contínuo na GloboNews ("Captando fala da TV sem fim"):** Em telejornais ao vivo sem pausas de silêncio, o reconhecimento de áudio agora corta rigidamente blocos de 4.5 segundos de áudio com chamada forçada de `stopListening()`, gerando a transcrição e checagem imediata sem nunca travar.
-            - **Watchdogs de Segurança (3s e 7.5s):** Garantem que se o motor de voz da TV Box/uniTV demorar para responder ou travar, o ciclo é reiniciado automaticamente em milissegundos.
-            - **Varredura Automática de Manchetes da TV em 2º Plano:** Além da escuta contínua de áudio, o serviço agora checa automaticamente a cada 35 segundos as manchetes e tarjas (GC) no ar da GloboNews/G1 contra as agências Aos Fatos, Agência Lupa, TSE e STF!
-            - **Chave de IA Blindada:** Fallback interno estático garantindo que nenhuma requisição falhe por falta de parâmetros.
+            ### 🚀 Grande Novidade da versão 1.0.7:
+            - **Motor de Streaming de Áudio em Baixo Nível (StreamingAudioRecordManager):** Substitui completamente o motor antigo do Android. Agora o microfone da TV é capturado em fluxo contínuo de 16kHz PCM (ininterrupto), sem depender de Google Voice ou do sistema operacional da TV!
+            - **Transcrição Neural ASR em Tempo Real:** Cada bloco contínuo de 3.8s a 4.2s de fala da TV é transmitido em streaming para o motor neural da IA, que transcreve com precisão cirúrgica em português do Brasil e confronta em tempo real com as agências (**Aos Fatos**, **Agência Lupa**, **TSE**, **STF** e **IBGE**).
+            - **Cards Flutuantes Imediatos na Tela:** O veredito (🔴 FALSO, 🟡 ENGANOSO, 🟢 VERDADEIRO) aparece no card flutuante sobre a programação da TV aberta ou uniTV instantaneamente.
+            - **Varredura Automática de Manchetes mantida:** Monitora simultaneamente as tarjas e notícias urgentes da GloboNews/G1 a cada 35 segundos.
             
             ### Como instalar na sua TV / uniTV:
-            1. Baixe o arquivo **`TVFactChecker_v1.0.6.apk`** abaixo.
+            1. Baixe o arquivo **`TVFactChecker_v1.0.7.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
             4. Conceda as permissões de sobreposição de tela e microfone.
             5. Inicie o monitoramento!
-          files: TVFactChecker_v1.0.6.apk
+          files: TVFactChecker_v1.0.7.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
