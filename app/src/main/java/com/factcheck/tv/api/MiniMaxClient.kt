@@ -30,7 +30,8 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
         .build()
 
     private val gson = Gson()
-    private val endpoint = "https://api.minimaxi.chat/v1/text/chatcompletion_v2"
+    private val primaryEndpoint = "https://api.minimax.io/v1/chat/completions"
+    private val fallbackEndpoint = "https://api.minimaxi.chat/v1/text/chatcompletion_v2"
     private val asrEndpoint = "https://api.minimaxi.chat/v1/speech_to_text"
 
     fun updateApiKey(newKey: String) {
@@ -78,7 +79,8 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
     }
 
     /**
-     * Envia o áudio transcrito da TV para verificar contra agências de fact-checking e bases oficiais.
+     * Envia o áudio transcrito da TV para verificar contra agências de fact-checking e bases oficiais
+     * utilizando o modelo mais potente MiniMax-M3.1-Flash com 1 milhão de tokens de contexto.
      */
     suspend fun checkTranscript(transcript: String, evidenceContext: String = ""): FactCheckResult? = withContext(Dispatchers.IO) {
         if (transcript.isBlank() || apiKey.isBlank()) {
@@ -94,7 +96,7 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
                - "FALSO" (informação comprovadamente incorreta, inventada ou distorcida).
                - "ENGANOSO" (dado fora de contexto, exagero desmentido ou informação incompleta).
                - "VERDADEIRO" (fato real condizente com as apurações e dados oficiais).
-            2. Resuma em 1 frase curta o que foi dito na TV ("claim_text") e em 1 frase clara qual é a realidade checada ("verified_fact").
+            2. Seja extremamente conciso e direto. A síntese no verified_fact deve ter no máximo 2 frases curtas para leitura dinâmica na tela da TV.
             3. Indique a fonte de autoridade ("source") (ex: "Aos Fatos", "Agência Lupa", "TSE", "G1 Fato ou Fake", "IBGE", "Projeto Comprova").
             4. Se o trecho não contiver nenhuma alegação factual verificável (apenas comentários informais, saudações, piadas), retorne "has_claim": false.
 
@@ -120,8 +122,9 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
 
     private fun executeChatQuery(systemPrompt: String, userPrompt: String): FactCheckResult? {
         val requestPayload = JsonObject().apply {
-            addProperty("model", "MiniMax-Text-01")
-            addProperty("temperature", 0.1)
+            addProperty("model", "MiniMax-M3.1-Flash")
+            addProperty("reasoning_effort", "low") // Otimiza a profundidade de pensamento para resposta ultrarrápida na TV
+            addProperty("max_completion_tokens", 800)
             val messagesArray = com.google.gson.JsonArray().apply {
                 add(JsonObject().apply {
                     addProperty("role", "system")
@@ -135,9 +138,21 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
             add("messages", messagesArray)
         }
 
-        val body = requestPayload.toString().toRequestBody("application/json".toMediaType())
+        val jsonString = requestPayload.toString()
+
+        // 1. Tenta o endpoint global primário da MiniMax (OpenAI-compatible)
+        val primaryResult = sendPostRequest(primaryEndpoint, jsonString)
+        if (primaryResult != null) return primaryResult
+
+        // 2. Se falhar, executa failover automático para o endpoint secundário
+        Log.w("MiniMaxClient", "Executando failover para endpoint secundário...")
+        return sendPostRequest(fallbackEndpoint, jsonString)
+    }
+
+    private fun sendPostRequest(targetUrl: String, jsonPayload: String): FactCheckResult? {
+        val body = jsonPayload.toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
-            .url(endpoint)
+            .url(targetUrl)
             .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
             .post(body)
@@ -146,7 +161,7 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
         try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Log.e("MiniMaxClient", "Erro na API: ${response.code} - ${response.message}")
+                    Log.e("MiniMaxClient", "Erro na API ($targetUrl): ${response.code} - ${response.message}")
                     return null
                 }
 
@@ -155,20 +170,29 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
                 val choices = rootJson.getAsJsonArray("choices")
                 if (choices != null && choices.size() > 0) {
                     val message = choices[0].asJsonObject.getAsJsonObject("message")
-                    val content = message?.get("content")?.asString ?: return null
+                    var content = message?.get("content")?.asString ?: ""
+
+                    // Se content estiver vazio mas reasoning_content existir, aproveita o texto
+                    if (content.isBlank() && message?.has("reasoning_content") == true) {
+                        content = message.get("reasoning_content")?.asString ?: ""
+                    }
 
                     val cleanJson = cleanMarkdownJson(content)
                     return gson.fromJson(cleanJson, FactCheckResult::class.java)
                 }
             }
         } catch (e: Exception) {
-            Log.e("MiniMaxClient", "Falha na requisição da IA: ${e.message}", e)
+            Log.e("MiniMaxClient", "Falha na requisição para $targetUrl: ${e.message}")
         }
         return null
     }
 
     private fun cleanMarkdownJson(raw: String): String {
         var clean = raw.trim()
+        // Remove tags <think>...</think> se existirem
+        if (clean.contains("</think>")) {
+            clean = clean.substringAfter("</think>").trim()
+        }
         if (clean.startsWith("```json")) {
             clean = clean.removePrefix("```json")
         } else if (clean.startsWith("```")) {
@@ -176,6 +200,13 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
         }
         if (clean.endsWith("```")) {
             clean = clean.removeSuffix("```")
+        }
+
+        // Garante isolamento estrito do primeiro '{' até o último '}'
+        val firstBrace = clean.indexOf('{')
+        val lastBrace = clean.lastIndexOf('}')
+        if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+            clean = clean.substring(firstBrace, lastBrace + 1)
         }
         return clean.trim()
     }
