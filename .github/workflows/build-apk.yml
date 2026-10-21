@@ -34,32 +34,37 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          # Encontra o APK gerado e copia com o nome padronizado oficial
+          APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          cp "$APK_FILE" TVFactChecker_v1.0.1.apk
+          ls -lh TVFactChecker_v1.0.1.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TV-Fact-Checker-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: TVFactChecker_v1.0.1
+          path: TVFactChecker_v1.0.1.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0-${{ github.run_number }}
-          name: TV Fact Checker v1.0.0 (Build ${{ github.run_number }})
+          tag_name: v1.0.1
+          name: TV Fact Checker v1.0.1
           body: |
-            ## 📺 TV Fact Checker AI - APK para Android TV
+            ## 📺 TV Fact Checker AI - APK Oficial para Android TV
             
-            Compilação automática concluída com sucesso!
+            Versão oficial compilada: **TVFactChecker_v1.0.1.apk**
             
-            ### Como instalar na sua TV:
-            1. Baixe o arquivo **`app-debug.apk`** abaixo.
+            ### Como instalar na sua TV / uniTV:
+            1. Baixe o arquivo **`TVFactChecker_v1.0.1.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
             4. Conceda a permissão de sobreposição de tela e microfone.
             5. Inicie o monitoramento!
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: TVFactChecker_v1.0.1.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -37,6 +37,12 @@ android {
     buildFeatures {
         viewBinding true
     }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "TVFactChecker_v${defaultConfig.versionName}.apk"
+        }
+    }
 }
 
 dependencies {
