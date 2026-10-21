@@ -87,25 +87,30 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
         evidenceContext: String = "",
         screenshotBase64: String? = null
     ): FactCheckResult? = withContext(Dispatchers.IO) {
-        if (transcript.isBlank() || apiKey.isBlank()) {
+        if (transcript.isBlank() && screenshotBase64.isNullOrBlank()) {
+            return@withContext null
+        }
+        if (apiKey.isBlank()) {
             return@withContext null
         }
 
         val systemPrompt = """
-            Você é o motor de checagem em tempo real especializado em telejornalismo ao vivo (GloboNews, TV aberta, CNN Brasil) e debates políticos no Brasil.
-            Suas fontes de referência mandatárias são as agências de checagem brasileiras certificadas (Agência Lupa, Aos Fatos, Projeto Comprova, G1 Fato ou Fake) e órgãos oficiais de Estado (TSE, STF, IBGE, Banco Central, Ministérios).
+            Você é o motor de checagem em tempo real especializado em telejornalismo ao vivo (GloboNews, TV aberta, uniTV, IPTV, CNN Brasil, debates políticos).
+            Suas fontes de referência mandatárias são agências de checagem oficiais (Agência Lupa, Aos Fatos, Projeto Comprova, G1 Fato ou Fake) e órgãos de Estado (TSE, STF, IBGE, Banco Central, Ministérios).
 
-            DIRETRIZ DE VERIFICAÇÃO MANDATÁRIA:
-            1. O telespectador está assistindo à TV ao vivo. Sempre que houver uma notícia, debate, manchete na tela ou declaração de interesse público (política, economia, índices, declarações de Lula, Bolsonaro, ministros, etc.), defina SEMPRE "has_claim": true!
-            2. O telespectador quer ver o card na tela tanto para notícias VERDADEIRAS quanto FALSAS ou ENGANOSAS:
-               - "VERDADEIRO": a informação dita ou mostrada condiz com a realidade, dados oficiais ou fatos apurados.
-               - "FALSO": a informação é incorreta, boato ou comprovadamente desmentida.
-               - "ENGANOSO": dado fora de contexto, exagero tendencioso ou distorção.
-            3. Tanto para "VERDADEIRO", "FALSO" ou "ENGANOSO", mantenha SEMPRE "has_claim": true para que o card correspondente (verde, vermelho ou amarelo) seja projetado na tela da TV!
-            4. Se uma imagem da tela da TV (screenshot) for fornecida, leia prioritariamente as tarjas, o gerador de caracteres (GC), números e gráficos exibidos no televisor para confirmar o contexto da notícia.
-            5. "claim_text": o que foi dito ou exibido na TV (frase curta e clara).
-            6. "verified_fact": a explicação factual em 1 ou 2 frases com os dados reais confirmados ou corrigidos.
-            7. Apenas retorne "has_claim": false se o áudio for exclusivamente silêncio, música de fundo, ou saudações curtas ("boa noite", "olá") sem nenhuma notícia ou fato associado.
+            DIRETRIZ DE VERIFICAÇÃO 100% À PROVA DE ERROS:
+            1. Você recebe a imagem em alta resolução da tela da TV (screenshot 720p) e o áudio da transmissão atual:
+               - LEIA AS TARJAS E MANCHETES DA TELA (GC): O gerador de caracteres da TV exibe a manchete oficial do canal. Se o áudio tiver ruído ambiente da sala ou for parcial, use prioritariamente o texto escrito na tela para identificar o fato exato.
+               - CRUZE COM O ÁUDIO: Combine a fala do apresentador com o texto exibido no televisor.
+            2. CLASSIFICAÇÃO IMEDIATA:
+               - "VERDADEIRO": a informação noticiada na tela/áudio condiz com a realidade, dados oficiais (IBGE, TSE, etc.) ou apuração jornalística real.
+               - "FALSO": alegação incorreta, boato, mentira ou dado desmentido.
+               - "ENGANOSO": dado fora de contexto, exagero distorcido ou afirmação precipitada.
+            3. REGRA MANDATÁRIA DO CARD: Sempre que houver uma notícia ou declaração de interesse público (política, economia, candidatos, Lula, Bolsonaro, ministros, índices, saúde, judiciário), defina SEMPRE "has_claim": true para projetar o card na TV (verde para VERDADEIRO, vermelho para FALSO, amarelo para ENGANOSO).
+            4. "claim_text": a manchete ou frase central que a TV noticiou (frase curta e direta, máx 120 caracteres).
+            5. "verified_fact": a explicação factual em 1 ou 2 frases com os dados reais confirmados ou corrigidos.
+            6. "source": a fonte oficial de apuração (ex: IBGE / G1 / TSE / Aos Fatos).
+            7. Apenas retorne "has_claim": false se a transmissão for intervalo comercial de produtos comuns (ex: sabão em pó, cerveja), desenho animado ou vinheta musical sem notícia.
 
             Responda EXCLUSIVAMENTE em formato JSON com o seguinte schema:
             {
@@ -119,10 +124,16 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
         """.trimIndent()
 
         val promptBuilder = StringBuilder()
-        promptBuilder.append("Trecho ouvido da transmissão da TV:\n\"$transcript\"")
-        if (evidenceContext.isNotBlank()) {
-            promptBuilder.append("\n\n").append(evidenceContext)
+        if (transcript.isNotBlank()) {
+            promptBuilder.append("ÁUDIO COLETADO DO CANAL DA TV NO MOMENTO:\n\"$transcript\"\n\n")
         }
+        if (!screenshotBase64.isNullOrBlank()) {
+            promptBuilder.append("TELA ATUAL DA TV (SCREENSHOT HD EM ANEXO):\nAnalise a imagem da TV em anexo: leia as tarjas, manchetes, o GC (gerador de caracteres), números e gráficos exibidos no canal atual.\n\n")
+        }
+        if (evidenceContext.isNotBlank()) {
+            promptBuilder.append("EVIDÊNCIAS DE AGÊNCIAS DE FACT-CHECKING:\n$evidenceContext\n\n")
+        }
+        promptBuilder.append("INSTRUÇÃO: Identifique a notícia ou fato exibido na TV agora e emita o veredito com dados oficiais.")
 
         return@withContext executeChatQuery(systemPrompt, promptBuilder.toString(), screenshotBase64)
     }

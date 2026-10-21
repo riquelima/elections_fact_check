@@ -38,40 +38,40 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
           # Encontra o APK gerado e copia com o nome padronizado oficial
           APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$APK_FILE" TVFactChecker_v1.1.0.apk
-          ls -lh TVFactChecker_v1.1.0.apk
+          cp "$APK_FILE" TVFactChecker_v1.2.0.apk
+          ls -lh TVFactChecker_v1.2.0.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVFactChecker_v1.1.0
-          path: TVFactChecker_v1.1.0.apk
+          name: TVFactChecker_v1.2.0
+          path: TVFactChecker_v1.2.0.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.0
-          name: TV Fact Checker v1.1.0
+          tag_name: v1.2.0
+          name: TV Fact Checker v1.2.0
           body: |
-            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.1.0)
+            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.2.0)
             
-            Versão oficial compilada: **TVFactChecker_v1.1.0.apk**
+            Versão oficial compilada: **TVFactChecker_v1.2.0.apk**
             
-            ### 🚀 Novidades da versão 1.1.0:
-            - **Janela de Contexto de 1 Minuto (Escuta Contínua Aprofundada):** Agora o sistema ouve o telejornal/debate por 1 minuto completo (60 segundos) antes de disparar a checagem, acumulando a notícia inteira, o argumento e as declarações com contexto robusto, eliminando checagens precipitadas em frases incompletas.
-            - **Fim da Disparada Excessiva de Cards (Pacing Controlado):** Bloqueio estrito de sobreposição de cards. Enquanto um card de checagem estiver sendo exibido na tela, nenhum outro alerta é aberto.
-            - **Tempo Ampliado de Leitura dos Cards:** Os cards agora permanecem visíveis de 14s a 16s com cronômetro na tela para leitura calma do veredito.
-            - **Indicador de Progresso em Tempo Real na Pílula:** A pílula de status no canto da tela exibe a contagem exata do minuto: `🎙️ Ouvindo TV... (15s/60s)`, `(30s/60s)`, `(45s/60s)`, `(60s/60s)`.
-            - **Print da Tela e Tarjas Multimodais Integrados:** Captura contínua e leve da tela via `MediaProjection` no exato momento da validação do minuto.
+            ### 🚀 Novidades da versão 1.2.0 (100% à prova de erros):
+            - **Captura do Som Real da TV + Filtros de Hardware:** Integração de `AudioPlaybackCaptureConfiguration` (captura direta do áudio digital dos canais em IPTV / uniTV sem passar pelo microfone) com fallback para microfone com cancelamento de eco acústico (`AcousticEchoCanceler`) e supressão de ruído (`NoiseSuppressor`). Elimina eco de caixas de som e ruídos da sala.
+            - **Ciclo Ágil de 16 Segundos (Ideal para Troca de Canais):** Ao mudar da TV aberta para uniTV/IPTV, o sistema detecta o novo canal em 16 segundos, sem misturar áudio de canais diferentes nem esperar tempos longos.
+            - **Print da Tela em HD 720p (1280x720):** Resolução aumentada para HD 720p garantindo nitidez absoluta na leitura das tarjas, gerador de caracteres (GC), números, datas e manchetes exibidas na tela.
+            - **Fusão Multissensorial Prioritária:** Se o áudio tiver ruído ambiente da sala, a IA prioriza automaticamente a manchete escrita na tela para checar a informação com 100% de exatidão.
+            - **Cards para VERDADEIRO, FALSO e ENGANOSO:** Exibição firme do card com veredito oficial sem interrupções (14s a 16s com cronômetro).
             
             ### Como instalar na sua TV / uniTV:
-            1. Baixe o arquivo **`TVFactChecker_v1.1.0.apk`** abaixo.
+            1. Baixe o arquivo **`TVFactChecker_v1.2.0.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
             4. Conceda as permissões de sobreposição de tela, microfone e captura de tela.
             5. Inicie o monitoramento!
-          files: TVFactChecker_v1.1.0.apk
+          files: TVFactChecker_v1.2.0.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

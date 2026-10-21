@@ -163,7 +163,7 @@ class FactCheckOverlayManager(private val context: Context) {
                         expandedCard.animate().alpha(0.0f).setDuration(250).withEndAction {
                             expandedCard.visibility = View.GONE
                             isAlertShowing = false
-                            tvAmbientStatus.text = "🎙️ Ouvindo TV... (0s/60s)"
+                            tvAmbientStatus.text = "🎙️ Ouvindo TV ao vivo..."
                         }.start()
                     }
                 }.start()
@@ -172,7 +172,7 @@ class FactCheckOverlayManager(private val context: Context) {
                     dismissTimer?.cancel()
                     expandedCard.visibility = View.GONE
                     isAlertShowing = false
-                    tvAmbientStatus.text = "🎙️ Ouvindo TV... (0s/60s)"
+                    tvAmbientStatus.text = "🎙️ Ouvindo TV ao vivo..."
                 }
             }, 100)
         }

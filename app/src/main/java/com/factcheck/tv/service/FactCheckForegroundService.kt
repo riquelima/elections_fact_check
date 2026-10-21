@@ -172,7 +172,7 @@ class FactCheckForegroundService : LifecycleService() {
             }
         }
 
-        // 1. Inicializa o Motor de Streaming de Áudio com Janela de 1 Minuto
+        // 1. Inicializa o Motor de Áudio em Tempo Real (Ciclos de 16s + Cancelamento de Eco da TV)
         streamingAudioManager = StreamingAudioRecordManager(
             context = this,
             miniMaxClient = miniMaxClient,
@@ -182,14 +182,16 @@ class FactCheckForegroundService : LifecycleService() {
             onTranscriptRecognized = { spokenText ->
                 processLiveTranscript(spokenText)
             }
-        )
-        streamingAudioManager?.startStreaming()
+        ).apply {
+            setMediaProjection(screenCaptureManager.currentMediaProjection)
+            startStreaming()
+        }
     }
 
     /**
-     * Processa a janela de 1 minuto de contexto de áudio e a tela da TV em tempo real.
-     * Cruza com as agências de checagem (Aos Fatos, Agência Lupa, G1 Fato ou Fake, TSE, IBGE)
-     * e exibe o veredito no card flutuante tanto para notícias verdadeiras quanto falsas/enganosas.
+     * Processa o áudio do canal atual e a imagem HD da tela em tempo real.
+     * Cruza as tarjas e GC da TV + fala com agências de checagem oficiais
+     * e projeta o card flutuante tanto para notícias verdadeiras quanto falsas/enganosas.
      */
     private fun processLiveTranscript(spokenText: String) {
         if (overlayManager.isAlertShowing) {
@@ -200,13 +202,13 @@ class FactCheckForegroundService : LifecycleService() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                Log.i("FactCheckService", "CONTEXTO COLETADO DA TV (1 MIN): \"$spokenText\"")
-                overlayManager.updateAmbientStatus("⚡ Analisando contexto de 1 min...")
+                Log.i("FactCheckService", "ÁUDIO/TELA DO CANAL ATUAL: \"$spokenText\"")
+                overlayManager.updateAmbientStatus("⚡ Verificando canal atual...")
 
-                // 1. Tira print da tela da TV no momento da checagem para capturar tarjas, GC e manchetes
+                // 1. Tira print HD 720p da tela da TV para ler tarjas, GC e manchetes
                 val screenshot = screenCaptureManager.getLatestScreenshotBase64()
                 if (screenshot != null) {
-                    Log.i("FactCheckService", "📸 Print da tela capturado (${screenshot.length} bytes base64)")
+                    Log.i("FactCheckService", "📸 Print da tela 720p capturado (${screenshot.length} bytes base64)")
                 }
 
                 // 2. Busca evidências nas maiores agências de fact-checking do Brasil (Aos Fatos, Agência Lupa)
@@ -215,7 +217,7 @@ class FactCheckForegroundService : LifecycleService() {
                     evidence = if (evidence.isNotBlank()) "$evidence\n[Manchete no GC da TV: $headline]" else "[Manchete no GC da TV: $headline]"
                 }
 
-                // 3. Envia para o motor neural multimodal com fala de 1 min + print da tela da TV + fontes
+                // 3. Envia para o motor neural multimodal com fala + print da tela da TV + fontes
                 val result = miniMaxClient.checkTranscript(spokenText, evidence, screenshot)
 
                 // O card DEVE ser exibido na TV tanto para fatos VERDADEIROS quanto FALSOS ou ENGANOSOS!
@@ -231,13 +233,13 @@ class FactCheckForegroundService : LifecycleService() {
                     Log.i("FactCheckService", "VEREDITO: ${result.verdict} | ${result.claimText} -> ${result.verifiedFact}")
                     overlayManager.showFactCheckAlert(result)
                 } else {
-                    overlayManager.updateAmbientStatus("✓ Contexto verificado")
-                    delay(3000)
-                    overlayManager.updateAmbientStatus("🎙️ Ouvindo TV... (0s/60s)")
+                    overlayManager.updateAmbientStatus("✓ Canal conferido")
+                    delay(2500)
+                    overlayManager.updateAmbientStatus("🎙️ Ouvindo TV ao vivo...")
                 }
             } catch (e: Exception) {
                 Log.e("FactCheckService", "Erro ao processar checagem: ${e.message}")
-                overlayManager.updateAmbientStatus("🎙️ Ouvindo TV... (0s/60s)")
+                overlayManager.updateAmbientStatus("🎙️ Ouvindo TV ao vivo...")
             } finally {
                 streamingAudioManager?.isAnalyzing = false
             }

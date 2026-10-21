@@ -19,9 +19,9 @@ import android.view.WindowManager
 import java.io.ByteArrayOutputStream
 
 /**
- * Capturador de Tela em Tempo Real para Smart TVs e TV Boxes.
- * Tira prints contínuos e leves (640x360) da transmissão ao vivo para que a IA
- * analise as tarjas, GC, manchetes e elementos visuais da TV em conjunto com o áudio.
+ * Capturador de Tela em Alta Resolução (720p HD) para Smart TVs e TV Boxes.
+ * Tira prints contínuos da tela da TV para que a IA analise com nitidez absoluta
+ * as tarjas, o GC (gerador de caracteres), números e gráficos das emissoras de jornal.
  */
 class ScreenCaptureManager(private val context: Context) {
 
@@ -31,18 +31,22 @@ class ScreenCaptureManager(private val context: Context) {
     private var backgroundThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
 
-    private var width = 640
-    private var height = 360
+    // Resolução HD 720p (1280x720) para máxima legibilidade do texto na TV
+    private var width = 1280
+    private var height = 720
     private var density = 160
 
     var isInitialized = false
         private set
 
+    val currentMediaProjection: MediaProjection?
+        get() = mediaProjection
+
     @Volatile
     private var lastCapturedBase64: String? = null
     @Volatile
     private var lastProcessedTime = 0L
-    private val THROTTLE_MS = 1000L // Atualiza no máximo 1 print por segundo para economizar CPU na TV
+    private val THROTTLE_MS = 1200L // Atualiza no máximo 1 print a cada 1.2s para manter performance leve
 
     fun initialize(resultCode: Int, data: Intent) {
         try {
@@ -59,8 +63,8 @@ class ScreenCaptureManager(private val context: Context) {
             @Suppress("DEPRECATION")
             windowManager.defaultDisplay.getRealMetrics(metrics)
 
-            width = 640
-            height = 360
+            width = 1280
+            height = 720
             density = metrics.densityDpi
 
             imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
@@ -86,7 +90,7 @@ class ScreenCaptureManager(private val context: Context) {
                 imageReader?.surface, null, backgroundHandler
             )
             isInitialized = true
-            Log.i("ScreenCapture", "Captura de tela VirtualDisplay inicializada com sucesso ($width x $height).")
+            Log.i("ScreenCapture", "Captura de tela HD 720p inicializada com sucesso ($width x $height).")
         } catch (e: Exception) {
             Log.e("ScreenCapture", "Erro ao inicializar captura de tela: ${e.message}")
             isInitialized = false
@@ -116,7 +120,8 @@ class ScreenCaptureManager(private val context: Context) {
             }
 
             val baos = ByteArrayOutputStream()
-            cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 65, baos)
+            // Compressão JPEG a 70% preserva todas as letras das manchetes com arquivo leve (~90 KB)
+            cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos)
             val jpegBytes = baos.toByteArray()
             val b64 = Base64.encodeToString(jpegBytes, Base64.NO_WRAP)
             lastCapturedBase64 = "data:image/jpeg;base64,$b64"

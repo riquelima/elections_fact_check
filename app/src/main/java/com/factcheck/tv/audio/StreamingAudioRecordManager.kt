@@ -2,9 +2,16 @@ package com.factcheck.tv.audio
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.AutomaticGainControl
+import android.media.audiofx.NoiseSuppressor
+import android.media.projection.MediaProjection
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -12,7 +19,6 @@ import com.factcheck.tv.api.MiniMaxClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -20,9 +26,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Motor de Streaming de Áudio com Janela de Contexto de 1 Minuto para Smart TVs e TV Boxes.
- * Lê o áudio ambiente da TV ininterruptamente a 16kHz PCM, transcreve em sub-blocos e
- * acumula 1 minuto completo de fala para gerar uma checagem precisa e contextualizada na IA.
+ * Motor de Áudio em Tempo Real para TV (TV aberta, uniTV e IPTV).
+ * Captura o áudio real da transmissão do canal atual em ciclos ágeis de 16 segundos,
+ * aplicando cancelamento de eco acústico e supressão de ruído da sala.
  */
 class StreamingAudioRecordManager(
     private val context: Context,
@@ -38,22 +44,17 @@ class StreamingAudioRecordManager(
     @Volatile
     private var isStreaming = false
     private var streamJob: Job? = null
-    private var tickerJob: Job? = null
 
     @Volatile
     var isAnalyzing = false
 
-    @Volatile
-    private var windowStartTime = System.currentTimeMillis()
-    private val minuteTranscriptAccumulator = StringBuilder()
-    private val accumulatorLock = Any()
+    private var mediaProjection: MediaProjection? = null
 
     companion object {
         const val SAMPLE_RATE = 16000
         const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
-        const val CONTEXT_WINDOW_SECONDS = 60 // 1 minuto de contexto
-        const val SUB_CHUNK_MS = 14_000L // Sub-blocos de 14 segundos para transcrição rápida
+        const val CYCLE_MS = 16_000L // Ciclo de 16 segundos para resposta ágil ao trocar de canal
 
         /**
          * Empacota o buffer PCM bruto em um arquivo WAV de 16kHz Mono 16-bit com cabeçalho RIFF de 44 bytes.
@@ -85,118 +86,78 @@ class StreamingAudioRecordManager(
         }
     }
 
+    fun setMediaProjection(mp: MediaProjection?) {
+        this.mediaProjection = mp
+    }
+
     @SuppressLint("MissingPermission")
     fun startStreaming() {
         if (isStreaming) return
         isStreaming = true
         isAnalyzing = false
-        windowStartTime = System.currentTimeMillis()
-        synchronized(accumulatorLock) {
-            minuteTranscriptAccumulator.setLength(0)
-        }
 
-        mainHandler.post { onStatusChanged("🎙️ Ouvindo TV... (0s/60s)") }
-
-        // Ticker suave de progresso a cada segundo
-        tickerJob?.cancel()
-        tickerJob = scope.launch {
-            while (isStreaming && isActive) {
-                delay(1000L)
-                if (!isAnalyzing) {
-                    val elapsedSec = ((System.currentTimeMillis() - windowStartTime) / 1000).toInt().coerceIn(0, CONTEXT_WINDOW_SECONDS)
-                    mainHandler.post {
-                        onStatusChanged("🎙️ Ouvindo TV... (${elapsedSec}s/60s)")
-                    }
-                }
-            }
-        }
+        mainHandler.post { onStatusChanged("🎙️ Ouvindo TV ao vivo...") }
 
         streamJob = scope.launch {
             try {
-                val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-                val bufferSize = Math.max(minBufferSize * 2, 4096)
-
-                audioRecord = AudioRecord(
-                    MediaRecorder.AudioSource.MIC,
-                    SAMPLE_RATE,
-                    CHANNEL_CONFIG,
-                    AUDIO_FORMAT,
-                    bufferSize
-                )
+                audioRecord = createOptimalAudioRecord()
 
                 if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                    Log.e("AudioStream", "AudioRecord não pôde ser inicializado")
+                    Log.e("AudioStream", "AudioRecord não pôde ser inicializado pelo hardware")
                     mainHandler.post { onStatusChanged("⚠️ Microfone indisponível") }
                     return@launch
                 }
 
                 audioRecord?.startRecording()
-                Log.i("AudioStream", "Motor de Escuta Contínua com Janela de 1 Minuto INICIADO.")
+                Log.i("AudioStream", "Motor de Escuta em Tempo Real (Ciclos de 16s) INICIADO.")
 
                 val readBuffer = ByteArray(2048)
-                val subChunkAccumulator = ByteArrayOutputStream()
-                var subChunkStartTime = System.currentTimeMillis()
-                var activeSpeechFrames = 0
+                val cycleAccumulator = ByteArrayOutputStream()
+                var cycleStartTime = System.currentTimeMillis()
+                var activeSpeechCount = 0
 
                 while (isStreaming && isActive) {
                     val bytesRead = audioRecord?.read(readBuffer, 0, readBuffer.size) ?: -1
                     if (bytesRead > 0) {
                         val rms = calculateRms(readBuffer, bytesRead)
-                        if (rms > 25.0) {
-                            activeSpeechFrames++
+                        if (rms > 18.0) {
+                            activeSpeechCount++
                         }
-                        subChunkAccumulator.write(readBuffer, 0, bytesRead)
+                        cycleAccumulator.write(readBuffer, 0, bytesRead)
 
-                        val subElapsedMs = System.currentTimeMillis() - subChunkStartTime
-                        val totalWindowElapsedMs = System.currentTimeMillis() - windowStartTime
+                        val elapsedMs = System.currentTimeMillis() - cycleStartTime
 
-                        // 1. Processa sub-bloco de áudio a cada 14 segundos
-                        if (subElapsedMs >= SUB_CHUNK_MS) {
-                            val pcmBytes = subChunkAccumulator.toByteArray()
-                            subChunkAccumulator.reset()
-                            subChunkStartTime = System.currentTimeMillis()
-                            val hadSpeech = activeSpeechFrames >= 3
-                            activeSpeechFrames = 0
+                        // Ao atingir 16 segundos de áudio do canal atual
+                        if (elapsedMs >= CYCLE_MS) {
+                            val pcmBytes = cycleAccumulator.toByteArray()
+                            cycleAccumulator.reset()
+                            cycleStartTime = System.currentTimeMillis()
+                            val hadSpeech = activeSpeechCount >= 3
+                            activeSpeechCount = 0
 
                             if (hadSpeech && pcmBytes.isNotEmpty()) {
                                 launch(Dispatchers.IO) {
                                     try {
+                                        mainHandler.post {
+                                            if (!isAnalyzing) onStatusChanged("⚡ Processando áudio do canal...")
+                                        }
                                         val wavBytes = pcmToWav(pcmBytes)
                                         val transcript = miniMaxClient.transcribeAudioChunk(wavBytes)
-                                        if (!transcript.isNullOrBlank() && transcript.trim().length >= 5) {
-                                            val cleanText = transcript.trim()
-                                            synchronized(accumulatorLock) {
-                                                if (minuteTranscriptAccumulator.isNotEmpty()) {
-                                                    minuteTranscriptAccumulator.append(" ")
-                                                }
-                                                minuteTranscriptAccumulator.append(cleanText)
-                                            }
-                                            Log.d("AudioStream", "Trecho transcrito: \"$cleanText\" | Total acumulado no minuto: ${minuteTranscriptAccumulator.length} chars")
-                                        }
+                                        val cleanText = transcript?.trim() ?: ""
+
+                                        Log.i("AudioStream", "ÁUDIO RECONHECIDO NO CANAL ATUAL: \"$cleanText\"")
+                                        onTranscriptRecognized(cleanText)
                                     } catch (e: Exception) {
-                                        Log.w("AudioStream", "Erro ao transcrever sub-bloco: ${e.message}")
+                                        Log.w("AudioStream", "Erro ao transcrever trecho do canal: ${e.message}")
+                                        // Mesmo se a transcrição do áudio falhar ou for curta, aciona para ler a tela
+                                        onTranscriptRecognized("")
                                     }
                                 }
-                            }
-                        }
-
-                        // 2. Quando completa a janela de 60 segundos (1 minuto)
-                        if (totalWindowElapsedMs >= CONTEXT_WINDOW_SECONDS * 1000L) {
-                            windowStartTime = System.currentTimeMillis()
-                            val fullContextText = synchronized(accumulatorLock) {
-                                val text = minuteTranscriptAccumulator.toString().trim()
-                                minuteTranscriptAccumulator.setLength(0)
-                                text
-                            }
-
-                            if (fullContextText.length >= 25) {
-                                Log.i("AudioStream", "=== 1 MINUTO DE CONTEXTO COLETADO: \"$fullContextText\" ===")
-                                isAnalyzing = true
-                                mainHandler.post { onStatusChanged("⚡ Analisando contexto de 1 min...") }
-                                onTranscriptRecognized(fullContextText)
                             } else {
-                                Log.i("AudioStream", "Janela de 1 min com pouca fala (${fullContextText.length} chars). Continuando escuta.")
-                                mainHandler.post { onStatusChanged("🎙️ Ouvindo TV... (0s/60s)") }
+                                // Canal com música, comercial ou fala baixa: aciona checagem visual das tarjas da tela
+                                launch(Dispatchers.IO) {
+                                    onTranscriptRecognized("")
+                                }
                             }
                         }
                     }
@@ -207,6 +168,109 @@ class StreamingAudioRecordManager(
             } finally {
                 releaseAudioRecord()
             }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun createOptimalAudioRecord(): AudioRecord? {
+        val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
+        val bufferSize = Math.max(minBufferSize * 2, 8192)
+
+        // 1. Tenta captura direta de áudio interno digital do sistema (Android 10+ via MediaProjection)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && mediaProjection != null) {
+            try {
+                val captureConfig = AudioPlaybackCaptureConfiguration.Builder(mediaProjection!!)
+                    .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+                    .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+                    .addMatchingUsage(AudioAttributes.USAGE_GAME)
+                    .build()
+
+                val audioFormat = AudioFormat.Builder()
+                    .setEncoding(AUDIO_FORMAT)
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(CHANNEL_CONFIG)
+                    .build()
+
+                val directRecord = AudioRecord.Builder()
+                    .setAudioPlaybackCaptureConfig(captureConfig)
+                    .setAudioFormat(audioFormat)
+                    .setBufferSizeInBytes(bufferSize)
+                    .build()
+
+                if (directRecord.state == AudioRecord.STATE_INITIALIZED) {
+                    Log.i("AudioStream", "✓ Captura de áudio digital interno do sistema ativada (IPTV/uniTV/apps)!")
+                    return directRecord
+                } else {
+                    directRecord.release()
+                }
+            } catch (e: Exception) {
+                Log.w("AudioStream", "AudioPlaybackCapture não aceito nesta firmware, usando microfone otimizado: ${e.message}")
+            }
+        }
+
+        // 2. Fallback: Microfone com VOICE_RECOGNITION + Cancelador de Eco e Supressor de Ruído
+        try {
+            val micRecord = AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                SAMPLE_RATE,
+                CHANNEL_CONFIG,
+                AUDIO_FORMAT,
+                bufferSize
+            )
+
+            if (micRecord.state == AudioRecord.STATE_INITIALIZED) {
+                applyHardwareAudioEffects(micRecord.audioSessionId)
+                Log.i("AudioStream", "✓ Microfone com VOICE_RECOGNITION + Cancelador de Eco ativado.")
+                return micRecord
+            } else {
+                micRecord.release()
+            }
+        } catch (e: Exception) {
+            Log.w("AudioStream", "Falha com VOICE_RECOGNITION: ${e.message}")
+        }
+
+        // 3. Fallback genérico: MIC padrão
+        return try {
+            val defaultRecord = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                SAMPLE_RATE,
+                CHANNEL_CONFIG,
+                AUDIO_FORMAT,
+                bufferSize
+            )
+            if (defaultRecord.state == AudioRecord.STATE_INITIALIZED) {
+                applyHardwareAudioEffects(defaultRecord.audioSessionId)
+                defaultRecord
+            } else {
+                defaultRecord.release()
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun applyHardwareAudioEffects(sessionId: Int) {
+        try {
+            if (AcousticEchoCanceler.isAvailable()) {
+                AcousticEchoCanceler.create(sessionId)?.apply {
+                    enabled = true
+                    Log.i("AudioStream", "✓ AcousticEchoCanceler ativado para suprimir eco da TV.")
+                }
+            }
+            if (NoiseSuppressor.isAvailable()) {
+                NoiseSuppressor.create(sessionId)?.apply {
+                    enabled = true
+                    Log.i("AudioStream", "✓ NoiseSuppressor ativado para filtrar ruído ambiente.")
+                }
+            }
+            if (AutomaticGainControl.isAvailable()) {
+                AutomaticGainControl.create(sessionId)?.apply {
+                    enabled = true
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("AudioStream", "Efeitos de áudio de hardware não suportados: ${e.message}")
         }
     }
 
@@ -237,8 +301,6 @@ class StreamingAudioRecordManager(
     fun stopStreaming() {
         isStreaming = false
         isAnalyzing = false
-        tickerJob?.cancel()
-        tickerJob = null
         streamJob?.cancel()
         streamJob = null
         releaseAudioRecord()
