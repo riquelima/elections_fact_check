@@ -70,6 +70,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnToggleService.onFocusChangeListener = tvFocusListener
         binding.btnTestOverlay.onFocusChangeListener = tvFocusListener
+        binding.btnTestPolitical.onFocusChangeListener = tvFocusListener
         binding.btnGrantOverlay.onFocusChangeListener = tvFocusListener
     }
 
@@ -94,6 +95,20 @@ class MainActivity : AppCompatActivity() {
             }
             startService(intent)
             Toast.makeText(this, "Exibindo card de simulação na TV...", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnTestPolitical.setOnClickListener {
+            if (!Settings.canDrawOverlays(this)) {
+                requestOverlayPermission()
+                return@setOnClickListener
+            }
+
+            // Dispara teste de debate político (Lula x Flávio Bolsonaro)
+            val intent = Intent(this, FactCheckForegroundService::class.java).apply {
+                action = FactCheckForegroundService.ACTION_TRIGGER_POLITICAL_TEST
+            }
+            startService(intent)
+            Toast.makeText(this, "Exibindo checagem de debate político na TV...", Toast.LENGTH_SHORT).show()
         }
 
         binding.btnGrantOverlay.setOnClickListener {

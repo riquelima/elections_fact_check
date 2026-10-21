@@ -18,20 +18,18 @@ import com.factcheck.tv.api.FactCheckResult
 import com.factcheck.tv.api.MiniMaxClient
 import com.factcheck.tv.audio.SpeechRecognitionManager
 import com.factcheck.tv.overlay.FactCheckOverlayManager
+import com.factcheck.tv.sources.FactCheckSourcesManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class FactCheckForegroundService : LifecycleService() {
 
     private lateinit var overlayManager: FactCheckOverlayManager
     private lateinit var miniMaxClient: MiniMaxClient
+    private lateinit var sourcesManager: FactCheckSourcesManager
     private var speechRecognitionManager: SpeechRecognitionManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private var liveRadarJob: Job? = null
-    private var lastSpeechTimestamp = 0L
 
     companion object {
         const val CHANNEL_ID = "tv_fact_check_channel"
@@ -40,6 +38,7 @@ class FactCheckForegroundService : LifecycleService() {
         const val ACTION_START = "com.factcheck.tv.START"
         const val ACTION_STOP = "com.factcheck.tv.STOP"
         const val ACTION_TRIGGER_TEST = "com.factcheck.tv.TRIGGER_TEST"
+        const val ACTION_TRIGGER_POLITICAL_TEST = "com.factcheck.tv.TRIGGER_POLITICAL_TEST"
 
         const val EXTRA_API_KEY = "extra_api_key"
 
@@ -51,6 +50,7 @@ class FactCheckForegroundService : LifecycleService() {
         super.onCreate()
         overlayManager = FactCheckOverlayManager(this)
         miniMaxClient = MiniMaxClient("")
+        sourcesManager = FactCheckSourcesManager()
         createNotificationChannel()
     }
 
@@ -68,6 +68,9 @@ class FactCheckForegroundService : LifecycleService() {
             }
             ACTION_TRIGGER_TEST -> {
                 showMockFactCheck()
+            }
+            ACTION_TRIGGER_POLITICAL_TEST -> {
+                showPoliticalDebateMock()
             }
         }
 
@@ -95,63 +98,44 @@ class FactCheckForegroundService : LifecycleService() {
         isRunning = true
         Log.i("FactCheckService", "Monitoramento em segundo plano iniciado na TV")
 
-        // Exibe imediatamente a pílula de monitoramento no canto da tela (sobreposta na TV aberta / uniTV)
+        // Exibe a pílula de monitoramento no canto da tela (sobreposta na TV aberta / uniTV)
         overlayManager.showAmbientPill()
 
-        // Inicializa reconhecimento de voz contínuo em português (pt-BR)
+        // Pré-carrega checagens de agências oficiais (Aos Fatos, Lupa, etc.) em segundo plano
+        lifecycleScope.launch(Dispatchers.IO) {
+            sourcesManager.refreshSourcesIfStale()
+        }
+
+        // Inicializa reconhecimento de voz contínuo para ouvir a transmissão da TV
         speechRecognitionManager = SpeechRecognitionManager(
             context = this,
             onStatusChanged = { statusText ->
                 overlayManager.updateAmbientStatus(statusText)
             },
             onTranscriptRecognized = { spokenText ->
-                lastSpeechTimestamp = System.currentTimeMillis()
                 processLiveTranscript(spokenText)
             }
         )
         speechRecognitionManager?.startListening()
-
-        // Inicia o Radar Contínuo de Notícias ao Vivo (garante checagens ativas mesmo com mic longe ou mudo)
-        startLiveNewsRadar()
     }
 
-    private fun startLiveNewsRadar() {
-        liveRadarJob?.cancel()
-        liveRadarJob = lifecycleScope.launch(Dispatchers.IO) {
-            // Primeiro disparo de radar após 20 segundos se o microfone ainda não tiver captado nada
-            delay(20000)
-            while (isActive && isRunning) {
-                val silenceDuration = System.currentTimeMillis() - lastSpeechTimestamp
-                // Se não houve fala reconhecida nos últimos 30 segundos (ex: TV Box sem microfone interno ou TV no mudo)
-                if (silenceDuration > 30000) {
-                    try {
-                        Log.i("FactCheckService", "Disparando Radar de Notícias ao Vivo...")
-                        overlayManager.updateAmbientStatus("⚡ Radar: Checando Notícia...")
-                        val radarResult = miniMaxClient.fetchLiveNewsClaim()
-                        if (radarResult != null && radarResult.hasClaim) {
-                            Log.i("FactCheckService", "Radar identificou fato verificado: ${radarResult.verdict} - ${radarResult.claimText}")
-                            overlayManager.showFactCheckAlert(radarResult)
-                        } else {
-                            overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
-                        }
-                    } catch (e: Exception) {
-                        Log.e("FactCheckService", "Erro no radar de notícias: ${e.message}")
-                        overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
-                    }
-                }
-                delay(45000) // Próxima checagem de radar em 45 segundos
-            }
-        }
-    }
-
+    /**
+     * Processa estritamente o áudio ouvido da TV em tempo real.
+     * Cruza com as agências de checagem (Aos Fatos, Agência Lupa, G1 Fato ou Fake, TSE, IBGE) e exibe o veredito.
+     */
     private fun processLiveTranscript(spokenText: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                Log.i("FactCheckService", "Analisando áudio da TV: \"$spokenText\"")
-                overlayManager.updateAmbientStatus("⚡ Analisando Fato...")
-                val result = miniMaxClient.checkTranscript(spokenText)
+                Log.i("FactCheckService", "ÁUDIO OUVIDO NA TV: \"$spokenText\"")
+                overlayManager.updateAmbientStatus("⚡ Checando: \"${spokenText.take(20)}...\"")
+
+                // 1. Busca evidências nas maiores agências de fact-checking do Brasil (Aos Fatos, Agência Lupa)
+                val evidence = sourcesManager.findRelevantEvidence(spokenText)
+
+                // 2. Envia para o motor neural confrontar a declaração com as agências e bases oficiais
+                val result = miniMaxClient.checkTranscript(spokenText, evidence)
                 if (result != null && result.hasClaim) {
-                    Log.i("FactCheckService", "FATO VERIFICADO: ${result.verdict} -> \"${result.claimText}\"")
+                    Log.i("FactCheckService", "VEREDITO: ${result.verdict} | Fonte: ${result.source}")
                     overlayManager.showFactCheckAlert(result)
                 } else {
                     overlayManager.updateAmbientStatus("✓ Sem alegações falsas")
@@ -165,22 +149,32 @@ class FactCheckForegroundService : LifecycleService() {
         }
     }
 
+    private fun showPoliticalDebateMock() {
+        val debateResult = FactCheckResult(
+            hasClaim = true,
+            verdict = "FALSO",
+            claimText = "O país atingiu o recorde histórico de falências de empresas no último ano.",
+            verifiedFact = "Dados do Serasa Experian apontam que o pico histórico de falências ocorreu na recessão de 2016. Os registros recentes tiveram redução.",
+            source = "Aos Fatos / Agência Lupa / Serasa Experian",
+            confidence = 0.98f
+        )
+        overlayManager.showFactCheckAlert(debateResult)
+    }
+
     private fun showMockFactCheck() {
         val mockResult = FactCheckResult(
             hasClaim = true,
-            verdict = "FALSO",
-            claimText = "O desemprego no país atingiu 0% no último semestre após nova medida.",
-            verifiedFact = "Dados consolidados da PNAD Contínua / IBGE registraram taxa real de desocupação de 6,8% no período.",
-            source = "IBGE / Pesquisa Nacional por Amostra de Domicílios",
-            confidence = 0.98f
+            verdict = "VERDADEIRO",
+            claimText = "A inflação acumulada nos últimos 12 meses fechou em 4,42%, segundo o IBGE.",
+            verifiedFact = "Dados oficiais do Índice de Preços ao Consumidor Amplo (IPCA/IBGE) confirmam a taxa apurada para o período.",
+            source = "IBGE / G1 Fato ou Fake",
+            confidence = 0.99f
         )
         overlayManager.showFactCheckAlert(mockResult)
     }
 
     private fun stopForegroundMonitoring() {
         isRunning = false
-        liveRadarJob?.cancel()
-        liveRadarJob = null
 
         speechRecognitionManager?.stopListening()
         speechRecognitionManager = null

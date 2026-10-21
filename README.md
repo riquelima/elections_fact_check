@@ -15,13 +15,13 @@ Aplicativo nativo para **Android TV, Google TV e TV Box** que realiza **checagem
 
 ## 🚀 Como Compilar o APK Automaticamente (GitHub Actions)
 
-O projeto inclui a automação do **GitHub Actions** em `.github/workflows/build-apk.yml`, compilando o arquivo oficial **`TVFactChecker_v1.0.3.apk`** diretamente na nuvem.
+O projeto inclui a automação do **GitHub Actions** em `.github/workflows/build-apk.yml`, compilando o arquivo oficial **`TVFactChecker_v1.0.4.apk`** diretamente na nuvem.
 
 ---
 
 ## 📲 Como Instalar o APK na sua Android TV / uniTV
 
-1. Baixe o arquivo **`TVFactChecker_v1.0.3.apk`** da aba **Releases**.
+1. Baixe o arquivo **`TVFactChecker_v1.0.4.apk`** da aba **Releases**.
 2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
 3. Abra um gerenciador de arquivos na TV e instale o APK.
 4. Conceda as permissões de microfone e sobreposição de tela.

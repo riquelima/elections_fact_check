@@ -115,7 +115,7 @@
             android:focusableInTouchMode="true"
             android:nextFocusDown="@id/btnTestOverlay" />
 
-        <!-- Button 2: Test Live Overlay -->
+        <!-- Button 2: Test Standard Live Overlay -->
         <Button
             android:id="@+id/btnTestOverlay"
             android:layout_width="match_parent"
@@ -123,16 +123,33 @@
             android:text="@string/btn_test_overlay"
             android:textColor="#FFFFFF"
             android:background="@drawable/bg_button_selector"
-            android:padding="18dp"
+            android:padding="16dp"
             android:textStyle="bold"
-            android:textSize="14sp"
-            android:layout_marginBottom="14dp"
+            android:textSize="13.5sp"
+            android:layout_marginBottom="12dp"
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusUp="@id/btnToggleService"
+            android:nextFocusDown="@id/btnTestPolitical" />
+
+        <!-- Button 3: Test Political Debate Claim (Lula x Flávio Bolsonaro) -->
+        <Button
+            android:id="@+id/btnTestPolitical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Testar: Debate Político (Lula x Flávio Bolsonaro)"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_button_selector"
+            android:padding="16dp"
+            android:textStyle="bold"
+            android:textSize="13.5sp"
+            android:layout_marginBottom="12dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/btnTestOverlay"
             android:nextFocusDown="@id/btnGrantOverlay" />
 
-        <!-- Button 3: Grant Overlay Permission -->
+        <!-- Button 4: Grant Overlay Permission -->
         <Button
             android:id="@+id/btnGrantOverlay"
             android:layout_width="match_parent"
@@ -145,7 +162,7 @@
             android:textSize="13sp"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnTestOverlay" />
+            android:nextFocusUp="@id/btnTestPolitical" />
 
         <TextView
             android:layout_width="match_parent"

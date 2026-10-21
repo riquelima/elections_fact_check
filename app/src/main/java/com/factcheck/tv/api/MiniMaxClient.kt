@@ -28,23 +28,25 @@ class MiniMaxClient(private var apiKey: String) {
     }
 
     /**
-     * Envia o áudio transcrito da TV para verificar se há alegações factuais e checar a veracidade.
+     * Envia o áudio transcrito da TV para verificar contra agências de fact-checking e bases oficiais.
      */
-    suspend fun checkTranscript(transcript: String): FactCheckResult? = withContext(Dispatchers.IO) {
+    suspend fun checkTranscript(transcript: String, evidenceContext: String = ""): FactCheckResult? = withContext(Dispatchers.IO) {
         if (transcript.isBlank() || apiKey.isBlank()) {
             return@withContext null
         }
 
         val systemPrompt = """
-            Você é um verificador de fatos em tempo real especializado em transmissões de TV aberta e jornalismo ao vivo no Brasil (GloboNews, TV Globo, CNN Brasil, BandNews).
-            Sua missão é analisar o trecho ouvido da TV e:
-            1. Determinar se há uma alegação factual verificável (dados econômicos, pesquisas, política, saúde, declarações oficiais). Ignore conversas informais ou saudações.
-            2. Se houver alegação factual, classifique o veredito estritamente como:
+            Você é o motor de checagem em tempo real especializado em debates políticos, eleições e telejornalismo ao vivo no Brasil (GloboNews, TV Globo, CNN Brasil, BandNews).
+            Suas fontes de referência mandatárias são as agências certificadas pela IFCN (Agência Lupa, Aos Fatos, Projeto Comprova, G1 Fato ou Fake, UOL Confere, Estadão Verifica, Reuters Fact Check) e órgãos oficiais de Estado (TSE, STF, IBGE, Banco Central do Brasil, CGU, Ministério da Fazenda, Congresso Nacional).
+
+            Sua missão é analisar o trecho exato ouvido da transmissão da TV:
+            1. Se houver alegação factual, dados econômicos, citações sobre adversários políticos, declarações de campanha ou medidas de governo, classifique o veredito estritamente como:
                - "FALSO" (informação comprovadamente incorreta, inventada ou distorcida).
-               - "ENGANOSO" (dado fora de contexto ou exagero desmentido).
-               - "VERDADEIRO" (fato real condizente com as fontes oficiais).
-            3. Resuma em 1 frase curta o que a TV disse ("claim_text") e em 1 frase clara qual é a realidade checada ("verified_fact").
-            4. Indique a fonte oficial de autoridade ("source") (ex: "IBGE", "Banco Central", "TSE", "Ministério da Saúde", "Fato ou Fake").
+               - "ENGANOSO" (dado fora de contexto, exagero desmentido ou informação incompleta).
+               - "VERDADEIRO" (fato real condizente com as apurações e dados oficiais).
+            2. Resuma em 1 frase curta o que foi dito na TV ("claim_text") e em 1 frase clara qual é a realidade checada ("verified_fact").
+            3. Indique a fonte de autoridade ("source") (ex: "Aos Fatos", "Agência Lupa", "TSE", "G1 Fato ou Fake", "IBGE", "Projeto Comprova").
+            4. Se o trecho não contiver nenhuma alegação factual verificável (apenas comentários informais, saudações, piadas), retorne "has_claim": false.
 
             Responda EXCLUSIVAMENTE em formato JSON com o seguinte schema:
             {
@@ -53,37 +55,17 @@ class MiniMaxClient(private var apiKey: String) {
               "claim_text": "...",
               "verified_fact": "...",
               "source": "...",
-              "confidence": 0.95
+              "confidence": 0.98
             }
         """.trimIndent()
 
-        val userPrompt = "Trecho ouvido da transmissão da TV:\n\"$transcript\""
-        return@withContext executeChatQuery(systemPrompt, userPrompt)
-    }
+        val promptBuilder = StringBuilder()
+        promptBuilder.append("Trecho ouvido da transmissão da TV:\n\"$transcript\"")
+        if (evidenceContext.isNotBlank()) {
+            promptBuilder.append("\n\n").append(evidenceContext)
+        }
 
-    /**
-     * Radar de notícias ao vivo: gera ou checa declarações factuais recentes em debate nos jornais da TV (GloboNews/Canais).
-     */
-    suspend fun fetchLiveNewsClaim(): FactCheckResult? = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) return@withContext null
-
-        val systemPrompt = """
-            Você é o motor de checagem em tempo real do TV Fact Checker para a televisão brasileira (GloboNews, CNN Brasil, TV Globo).
-            Selecione uma alegação factual relevante sobre economia, dados oficiais, política ou eleições em debate no jornalismo recente.
-            Pode ser classificada como "VERDADEIRO", "FALSO" ou "ENGANOSO".
-            Responda EXCLUSIVAMENTE em formato JSON com o schema:
-            {
-              "has_claim": true,
-              "verdict": "VERDADEIRO" | "FALSO" | "ENGANOSO",
-              "claim_text": "...",
-              "verified_fact": "...",
-              "source": "...",
-              "confidence": 0.96
-            }
-        """.trimIndent()
-
-        val userPrompt = "Gere uma checagem factual ao vivo para quem está assistindo a cobertura jornalística na TV agora."
-        return@withContext executeChatQuery(systemPrompt, userPrompt)
+        return@withContext executeChatQuery(systemPrompt, promptBuilder.toString())
     }
 
     private fun executeChatQuery(systemPrompt: String, userPrompt: String): FactCheckResult? {
