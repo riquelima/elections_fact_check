@@ -4,21 +4,21 @@
     android:layout_height="match_parent"
     android:orientation="horizontal"
     android:background="@color/background_tv"
-    android:padding="32dp"
+    android:padding="36dp"
     android:baselineAligned="false">
 
-    <!-- Left Column: Branding and System Status -->
+    <!-- Left Column: Branding, Status & Live Telemetry -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="center_vertical"
-        android:paddingEnd="24dp">
+        android:paddingEnd="32dp">
 
         <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="76dp"
+            android:layout_height="76dp"
             android:src="@drawable/ic_factcheck_logo"
             android:contentDescription="@string/app_name"
             android:layout_marginBottom="16dp" />
@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:text="@string/app_name"
             android:textColor="@color/text_primary"
-            android:textSize="28sp"
+            android:textSize="30sp"
             android:textStyle="bold" />
 
         <TextView
@@ -39,14 +39,14 @@
             android:textSize="14sp"
             android:layout_marginTop="6dp" />
 
-        <!-- Status Box -->
+        <!-- Status Card -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="@drawable/bg_card_tv"
-            android:padding="16dp"
-            android:layout_marginTop="24dp">
+            android:padding="18dp"
+            android:layout_marginTop="28dp">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -54,7 +54,8 @@
                 android:text="STATUS DO SISTEMA"
                 android:textColor="@color/text_secondary"
                 android:textSize="11sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:letterSpacing="0.05" />
 
             <TextView
                 android:id="@+id/tvStatus"
@@ -62,23 +63,23 @@
                 android:layout_height="wrap_content"
                 android:text="@string/status_service_stopped"
                 android:textColor="@color/accent_red"
-                android:textSize="16sp"
+                android:textSize="18sp"
                 android:textStyle="bold"
-                android:layout_marginTop="6dp" />
+                android:layout_marginTop="8dp" />
 
             <TextView
                 android:id="@+id/tvStats"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Alegações checadas nesta sessão: 0"
-                android:textColor="@color/text_secondary"
+                android:text="IA Pronta • Escuta em Português (pt-BR)"
+                android:textColor="@color/primary"
                 android:textSize="12sp"
-                android:layout_marginTop="4dp" />
+                android:layout_marginTop="6dp" />
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Right Column: Control Panel & Configuration -->
+    <!-- Right Column: DPAD Menu Options (No API Key field) -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="match_parent"
@@ -86,41 +87,19 @@
         android:orientation="vertical"
         android:gravity="center_vertical"
         android:background="@drawable/bg_card_tv"
-        android:padding="28dp">
+        android:padding="32dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="CONTROLES &amp; CONFIGURAÇÃO"
+            android:text="PAINEL DE CONTROLE DA TV"
             android:textColor="@color/primary"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:layout_marginBottom="16dp" />
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="20dp" />
 
-        <!-- API Key Input -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Chave de API MiniMax:"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
-
-        <EditText
-            android:id="@+id/etApiKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/hint_api_key"
-            android:textColorHint="#64748B"
-            android:textColor="@color/text_primary"
-            android:background="@drawable/bg_button_selector"
-            android:padding="12dp"
-            android:textSize="13sp"
-            android:singleLine="true"
-            android:layout_marginTop="6dp"
-            android:layout_marginBottom="16dp"
-            android:focusable="true" />
-
-        <!-- Primary Actions (DPAD Friendly) -->
+        <!-- Button 1: Toggle Monitoring (Main Action) -->
         <Button
             android:id="@+id/btnToggleService"
             android:layout_width="match_parent"
@@ -128,34 +107,53 @@
             android:text="@string/btn_start_service"
             android:textColor="#FFFFFF"
             android:background="@drawable/bg_button_selector"
-            android:padding="14dp"
+            android:padding="18dp"
             android:textStyle="bold"
-            android:textSize="14sp"
-            android:layout_marginBottom="10dp"
-            android:focusable="true" />
+            android:textSize="15sp"
+            android:layout_marginBottom="14dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@id/btnTestOverlay" />
 
+        <!-- Button 2: Test Live Overlay -->
         <Button
             android:id="@+id/btnTestOverlay"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/btn_test_overlay"
-            android:textColor="@color/text_primary"
+            android:textColor="#FFFFFF"
             android:background="@drawable/bg_button_selector"
-            android:padding="14dp"
-            android:textSize="13sp"
-            android:layout_marginBottom="10dp"
-            android:focusable="true" />
+            android:padding="18dp"
+            android:textStyle="bold"
+            android:textSize="14sp"
+            android:layout_marginBottom="14dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/btnToggleService"
+            android:nextFocusDown="@id/btnGrantOverlay" />
 
+        <!-- Button 3: Grant Overlay Permission -->
         <Button
             android:id="@+id/btnGrantOverlay"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/btn_permission_overlay"
-            android:textColor="@color/secondary"
+            android:textColor="#FFFFFF"
             android:background="@drawable/bg_button_selector"
-            android:padding="14dp"
-            android:textSize="12sp"
-            android:focusable="true" />
+            android:padding="16dp"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/btnTestOverlay" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dica: Use as setas do controle remoto para navegar. O botão selecionado ficará iluminado em verde com contorno branco."
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:layout_marginTop="16dp" />
 
     </LinearLayout>
 

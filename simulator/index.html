@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Android TV Fact Checker - Simulador de Interface & Controle Remoto</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-tv: #0b1120;
+      --surface-tv: #1e293b;
+      --surface-focused: #10b981;
+      --accent: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --accent-cyan: #06b6d4;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #020617;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 20px;
+      overflow-x: hidden;
+    }
+
+    /* Top Bar */
+    .top-header {
+      width: 100%;
+      max-width: 1400px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .top-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-live {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .mode-switch {
+      display: flex;
+      gap: 8px;
+      background: #0f172a;
+      padding: 4px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-mode {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-mode.active {
+      background: var(--surface-tv);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Main Workspace */
+    .sim-container {
+      width: 100%;
+      max-width: 1400px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+      align-items: start;
+    }
+
+    /* TV Frame */
+    .tv-bezel {
+      background: #111827;
+      padding: 16px;
+      border-radius: 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      position: relative;
+    }
+
+    .tv-screen {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--bg-tv);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+    }
+
+    /* VIEW 1: Android TV App Interface */
+    .view-app {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      padding: 40px;
+      background: radial-gradient(circle at 10% 20%, #172554 0%, #0b1120 70%);
+    }
+
+    .left-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-right: 32px;
+    }
+
+    .logo-box {
+      width: 64px;
+      height: 64px;
+      background: #1e293b;
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 16px;
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+    }
+
+    .app-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .app-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      margin-bottom: 24px;
+    }
+
+    .status-panel {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .status-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .status-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--accent-red);
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-val.running {
+      color: var(--accent);
+    }
+
+    .right-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: rgba(30, 41, 59, 0.5);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 28px;
+      gap: 14px;
+    }
+
+    .menu-header {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+
+    /* TV Button Focus Behavior */
+    .tv-btn {
+      width: 100%;
+      background: var(--surface-tv);
+      border: 2px solid #334155;
+      color: #fff;
+      padding: 16px 20px;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    /* ULTRA CLEAR FOCUSED STATE FOR TV REMOTE */
+    .tv-btn.focused {
+      background: #10b981 !important;
+      color: #020617 !important;
+      border-color: #ffffff !important;
+      box-shadow: 0 0 0 4px #10b981, 0 10px 25px rgba(16, 185, 129, 0.5) !important;
+      transform: scale(1.04);
+      z-index: 10;
+    }
+
+    .tv-btn.focused .btn-icon {
+      filter: brightness(0);
+    }
+
+    .btn-icon {
+      font-size: 18px;
+    }
+
+    .btn-hint-text {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    /* VIEW 2: Simulated Live TV Channel (GloboNews) */
+    .view-globonews {
+      width: 100%;
+      height: 100%;
+      display: none;
+      position: relative;
+      background: #0f172a;
+      overflow: hidden;
+    }
+
+    .tv-studio-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #311042 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tv-watermark {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-live-tv {
+      background: #ef4444;
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .channel-name {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+
+    .studio-silhouette {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .anchor-avatar {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: #334155;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 44px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+
+    .studio-desk {
+      width: 320px;
+      height: 40px;
+      background: linear-gradient(90deg, #1e293b, #3b82f6, #1e293b);
+      border-radius: 8px 8px 0 0;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Subtitles / Rolling Ticker */
+    .tv-ticker {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(15, 23, 42, 0.95);
+      border-top: 2px solid #ef4444;
+      padding: 12px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .ticker-tag {
+      background: #ef4444;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 8px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .ticker-text {
+      font-size: 14px;
+      color: #f1f5f9;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* THE FLOATING FACT CHECK OVERLAY CARD (NATIVE ON TV SCREEN) */
+    .tv-overlay-card {
+      position: absolute;
+      top: 24px;
+      right: 28px;
+      width: 380px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      border: 2px solid #ef4444;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+      display: none;
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      z-index: 100;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .overlay-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .overlay-badge {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: #fff;
+      background: #ef4444;
+    }
+
+    .overlay-timer {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .overlay-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .overlay-claim {
+      font-size: 13px;
+      color: #cbd5e1;
+      font-style: italic;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+
+    .overlay-fact {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.35;
+      margin-bottom: 6px;
+    }
+
+    .overlay-source {
+      font-size: 10.5px;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* Virtual Remote Control */
+    .remote-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 36px;
+      padding: 24px 20px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    }
+
+    .remote-brand {
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      margin-bottom: 20px;
+    }
+
+    .dpad-container {
+      width: 190px;
+      height: 190px;
+      background: #1e293b;
+      border-radius: 50%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.6), 0 4px 15px rgba(0,0,0,0.4);
+      margin-bottom: 24px;
+    }
+
+    .dpad-btn {
+      position: absolute;
+      background: transparent;
+      border: none;
+      color: #cbd5e1;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s;
+    }
+
+    .dpad-btn:hover, .dpad-btn:active {
+      color: var(--accent);
+      transform: scale(1.15);
+    }
+
+    .dpad-up { top: 10px; width: 50px; height: 35px; }
+    .dpad-down { bottom: 10px; width: 50px; height: 35px; }
+    .dpad-left { left: 10px; width: 35px; height: 50px; }
+    .dpad-right { right: 10px; width: 35px; height: 50px; }
+
+    .dpad-center {
+      width: 76px;
+      height: 76px;
+      background: #0f172a;
+      border: 2px solid #334155;
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      transition: all 0.15s;
+    }
+
+    .dpad-center:hover, .dpad-center:active {
+      background: var(--accent);
+      color: #020617;
+      border-color: #fff;
+      transform: scale(1.05);
+    }
+
+    .remote-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .btn-pill {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-pill:hover {
+      background: #334155;
+      border-color: var(--accent);
+    }
+
+    .keyboard-hint {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.5;
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+    }
+
+    .keyboard-hint kbd {
+      background: #334155;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header Navigation -->
+  <header class="top-header">
+    <h1>
+      📺 TV Fact Checker AI — Ambiente de Desenvolvimento
+      <span class="badge-live">Simulador Android TV</span>
+    </h1>
+    <div class="mode-switch">
+      <button class="btn-mode active" id="btnModeApp" onclick="switchMode('app')">📱 Tela do App na TV</button>
+      <button class="btn-mode" id="btnModeTv" onclick="switchMode('tv')">📡 GloboNews (TV Aberta ao Vivo)</button>
+    </div>
+  </header>
+
+  <!-- Main Simulator Layout -->
+  <main class="sim-container">
+
+    <!-- TV Frame Bezel -->
+    <div class="tv-bezel">
+      <div class="tv-screen" id="tvScreen">
+
+        <!-- VIEW 1: Native App Interface on Android TV -->
+        <div class="view-app" id="viewApp">
+          <div class="left-col">
+            <div class="logo-box">🛡️</div>
+            <h2 class="app-title">TV Fact Checker AI</h2>
+            <p class="app-sub">Fact-checking em tempo real para TV aberta com MiniMax AI</p>
+
+            <div class="status-panel">
+              <div class="status-label">STATUS DO SISTEMA</div>
+              <div class="status-val" id="tvStatusIndicator">
+                <span id="tvStatusDot">○</span>
+                <span id="tvStatusText">Monitoramento DESATIVADO</span>
+              </div>
+              <div style="font-size: 11px; color: var(--accent); margin-top: 6px; font-weight: 600;">
+                ✓ Chave MiniMax Embutida no APK
+              </div>
+            </div>
+          </div>
+
+          <div class="right-col">
+            <div class="menu-header">PAINEL DE CONTROLE DA TV</div>
+
+            <!-- Button 1: Toggle Monitoring (Selected by default) -->
+            <button class="tv-btn focused" id="menuBtn0" onclick="triggerAction(0)">
+              <span class="btn-icon">▶</span>
+              <span id="btn0Text">Iniciar Monitoramento em Segundo Plano</span>
+            </button>
+
+            <!-- Button 2: Test Overlay -->
+            <button class="tv-btn" id="menuBtn1" onclick="triggerAction(1)">
+              <span class="btn-icon">⚡</span>
+              <span>Testar Alerta na TV (Simulação)</span>
+            </button>
+
+            <!-- Button 3: Grant Overlay -->
+            <button class="tv-btn" id="menuBtn2" onclick="triggerAction(2)">
+              <span class="btn-icon">🛡️</span>
+              <span id="btn2Text">✓ Permissão de Sobreposição Ativa</span>
+            </button>
+
+            <p class="btn-hint-text">
+              ✨ <strong>Destaque em Verde &amp; Borda Branca:</strong> O botão selecionado expande e se ilumina para que você nunca se perca no controle remoto!
+            </p>
+          </div>
+        </div>
+
+        <!-- VIEW 2: Simulated Live TV Channel (GloboNews) with Overlay -->
+        <div class="view-globonews" id="viewTv">
+          <div class="tv-studio-bg">
+            <div class="studio-silhouette">
+              <div class="anchor-avatar">🎙️</div>
+              <div class="studio-desk"></div>
+            </div>
+          </div>
+
+          <div class="tv-watermark">
+            <span class="badge-live-tv">AO VIVO</span>
+            <span class="channel-name">GLOBO NEWS</span>
+          </div>
+
+          <!-- Bottom News Ticker -->
+          <div class="tv-ticker">
+            <span class="ticker-tag">URGENTE</span>
+            <span class="ticker-text" id="liveTickerText">
+              "Declaração no debate: 'O país zerou a fila de espera do SUS no último semestre'..."
+            </span>
+          </div>
+
+          <!-- The Floating Overlay Card (Draw Over Other Apps) -->
+          <div class="tv-overlay-card" id="tvOverlay">
+            <div class="overlay-header">
+              <span class="overlay-badge" id="cardBadge">🔴 FALSO</span>
+              <span class="overlay-timer" id="cardTimer">10s</span>
+            </div>
+            <div class="overlay-label">OUVIDO NA TV:</div>
+            <div class="overlay-claim" id="cardClaim">
+              "O país zerou a fila de espera do SUS no último semestre."
+            </div>
+            <div class="overlay-label" style="color: var(--accent);">FATO VERIFICADO:</div>
+            <div class="overlay-fact" id="cardFact">
+              Dados do DataSUS apontam mais de 1,2 milhão de pacientes aguardando cirurgias eletivas.
+            </div>
+            <div class="overlay-source" id="cardSource">
+              Fonte: Ministério da Saúde / Agência Lupa
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right Side: Virtual Remote Control -->
+    <aside class="remote-wrap">
+      <div class="remote-brand">ANDROID TV REMOTE</div>
+
+      <div class="dpad-container">
+        <button class="dpad-btn dpad-up" onclick="navDpad('up')" title="Cima">▲</button>
+        <button class="dpad-btn dpad-down" onclick="navDpad('down')" title="Baixo">▼</button>
+        <button class="dpad-btn dpad-left" onclick="navDpad('left')" title="Esquerda">◀</button>
+        <button class="dpad-btn dpad-right" onclick="navDpad('right')" title="Direita">▶</button>
+        <button class="dpad-center" onclick="navDpad('ok')">OK</button>
+      </div>
+
+      <div class="remote-row">
+        <button class="btn-pill" onclick="switchMode('app')">⌂ HOME</button>
+        <button class="btn-pill" onclick="switchMode('tv')">📺 TV</button>
+      </div>
+
+      <div style="width: 100%; margin-top: 10px;">
+        <button class="tv-btn" style="background:#0f172a; border-color:var(--accent); font-size:12.5px; padding:12px;" onclick="simulateTvSpeech()">
+          🎙️ Simular Notícia Falsa na TV
+        </button>
+      </div>
+
+      <div class="keyboard-hint">
+        💡 <strong>Você também pode usar o seu teclado:</strong><br>
+        <kbd>↑</kbd> <kbd>↓</kbd> para navegar nos botões<br>
+        <kbd>Enter</kbd> para clicar no botão focado<br>
+        <kbd>Espaço</kbd> para disparar o card na TV
+      </div>
+    </aside>
+
+  </main>
+
+  <script>
+    let focusedIndex = 0;
+    const totalButtons = 3;
+    let isMonitoring = false;
+    let timerInterval = null;
+
+    function updateFocus() {
+      for (let i = 0; i < totalButtons; i++) {
+        const btn = document.getElementById(`menuBtn${i}`);
+        if (btn) {
+          if (i === focusedIndex) {
+            btn.classList.add('focused');
+          } else {
+            btn.classList.remove('focused');
+          }
+        }
+      }
+    }
+
+    function navDpad(dir) {
+      if (dir === 'up') {
+        focusedIndex = (focusedIndex - 1 + totalButtons) % totalButtons;
+        updateFocus();
+      } else if (dir === 'down') {
+        focusedIndex = (focusedIndex + 1) % totalButtons;
+        updateFocus();
+      } else if (dir === 'ok') {
+        triggerAction(focusedIndex);
+      }
+    }
+
+    function triggerAction(idx) {
+      if (idx === 0) {
+        // Toggle service
+        isMonitoring = !isMonitoring;
+        const statusVal = document.getElementById('tvStatusIndicator');
+        const statusText = document.getElementById('tvStatusText');
+        const statusDot = document.getElementById('tvStatusDot');
+        const btn0Text = document.getElementById('btn0Text');
+
+        if (isMonitoring) {
+          statusVal.classList.add('running');
+          statusText.innerText = 'Monitoramento ATIVO (Ouvindo a TV)';
+          statusDot.innerText = '●';
+          btn0Text.innerText = 'Parar Monitoramento';
+        } else {
+          statusVal.classList.remove('running');
+          statusText.innerText = 'Monitoramento DESATIVADO';
+          statusDot.innerText = '○';
+          btn0Text.innerText = 'Iniciar Monitoramento em Segundo Plano';
+        }
+      } else if (idx === 1) {
+        // Test overlay
+        switchMode('tv');
+        showOverlayOnTv("O Brasil registrou zero inflação nos últimos 12 meses.", "Dados do IPCA / IBGE apontam inflação acumulada de 4,2% no período.", "IBGE / Banco Central");
+      } else if (idx === 2) {
+        alert("Permissão de sobreposição (SYSTEM_ALERT_WINDOW) já está ativa!");
+      }
+    }
+
+    function switchMode(mode) {
+      const viewApp = document.getElementById('viewApp');
+      const viewTv = document.getElementById('viewTv');
+      const btnModeApp = document.getElementById('btnModeApp');
+      const btnModeTv = document.getElementById('btnModeTv');
+
+      if (mode === 'app') {
+        viewApp.style.display = 'grid';
+        viewTv.style.display = 'none';
+        btnModeApp.classList.add('active');
+        btnModeTv.classList.remove('active');
+      } else {
+        viewApp.style.display = 'none';
+        viewTv.style.display = 'block';
+        btnModeTv.classList.add('active');
+        btnModeApp.classList.remove('active');
+      }
+    }
+
+    function showOverlayOnTv(claim, fact, source) {
+      const overlay = document.getElementById('tvOverlay');
+      const cardClaim = document.getElementById('cardClaim');
+      const cardFact = document.getElementById('cardFact');
+      const cardSource = document.getElementById('cardSource');
+      const cardTimer = document.getElementById('cardTimer');
+
+      cardClaim.innerText = `"${claim}"`;
+      cardFact.innerText = fact;
+      cardSource.innerText = `Fonte: ${source}`;
+
+      overlay.style.display = 'block';
+
+      clearInterval(timerInterval);
+      let secondsLeft = 10;
+      cardTimer.innerText = `${secondsLeft}s`;
+
+      timerInterval = setInterval(() => {
+        secondsLeft--;
+        cardTimer.innerText = `${secondsLeft}s`;
+        if (secondsLeft <= 0) {
+          clearInterval(timerInterval);
+          overlay.style.display = 'none';
+        }
+      }, 1000);
+    }
+
+    function simulateTvSpeech() {
+      switchMode('tv');
+      const examples = [
+        {
+          claim: "O desemprego no país caiu para 0% no último trimestre.",
+          fact: "A taxa real de desocupação apurada pelo IBGE (PNAD Contínua) foi de 6,8% no trimestre analisado.",
+          source: "IBGE / PNAD Contínua"
+        },
+        {
+          claim: "A vacinação contra febre amarela foi banida pela Anvisa.",
+          fact: "A Anvisa e o Ministério da Saúde mantêm a vacina no calendário oficial como segura e recomendada.",
+          source: "Anvisa / Ministério da Saúde"
+        },
+        {
+          claim: "Não há desmatamento na Amazônia desde o ano passado.",
+          fact: "Sistemas do INPE (Deter/Prodes) monitoraram mais de 5.000 km² sob alerta de desmatamento.",
+          source: "INPE / TerraBrasilis"
+        }
+      ];
+
+      const ex = examples[Math.floor(Math.random() * examples.length)];
+      document.getElementById('liveTickerText').innerText = `"${ex.claim}"`;
+      showOverlayOnTv(ex.claim, ex.fact, ex.source);
+    }
+
+    // Keyboard DPAD listeners
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        navDpad('up');
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        navDpad('down');
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        navDpad('ok');
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        simulateTvSpeech();
+      }
+    });
+
+    // Initialize
+    updateFocus();
+  </script>
+</body>
+</html>

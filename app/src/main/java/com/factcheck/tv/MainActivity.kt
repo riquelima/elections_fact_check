@@ -1,14 +1,13 @@
 package com.factcheck.tv
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -19,11 +18,11 @@ import com.factcheck.tv.service.FactCheckForegroundService
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val PREFS_NAME = "tv_fact_check_prefs"
-    private val KEY_API_KEY = "minimax_api_key"
 
-    // Default MiniMax Key from environment config
-    private val DEFAULT_API_KEY = "sk-cp-meaN0PHZdGi3-5gZffia9b6PyDIh27vyk54LwG6gw965dFLWoIHowFo19rTqoHdbxhaQezJlMMBgTEYhNni51sJnMWCcPHIKtCg4GRY-pGMmrXarNIxxGQA"
+    companion object {
+        // Chave oficial embutida de forma oculta no APK
+        const val EMBEDDED_MINIMAX_KEY = "sk-cp-meaN0PHZdGi3-5gZffia9b6PyDIh27vyk54LwG6gw965dFLWoIHowFo19rTqoHdbxhaQezJlMMBgTEYhNni51sJnMWCcPHIKtCg4GRY-pGMmrXarNIxxGQA"
+    }
 
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -40,9 +39,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        loadSavedApiKey()
+        setupTvFocusAnimations()
         setupListeners()
         updateServiceUI()
+
+        // Garante que o primeiro botão já comece focado para navegação imediata do controle remoto
+        binding.btnToggleService.post {
+            binding.btnToggleService.requestFocus()
+        }
     }
 
     override fun onResume() {
@@ -50,22 +54,27 @@ class MainActivity : AppCompatActivity() {
         updateServiceUI()
     }
 
-    private fun loadSavedApiKey() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val savedKey = prefs.getString(KEY_API_KEY, DEFAULT_API_KEY) ?: DEFAULT_API_KEY
-        binding.etApiKey.setText(savedKey)
-    }
+    /**
+     * Adiciona animação de zoom e destaque imediato para o controle remoto da Android TV.
+     */
+    private fun setupTvFocusAnimations() {
+        val tvFocusListener = View.OnFocusChangeListener { view, hasFocus ->
+            if (hasFocus) {
+                view.animate().scaleX(1.05f).scaleY(1.05f).setDuration(140).start()
+                view.elevation = 20f
+            } else {
+                view.animate().scaleX(1.0f).scaleY(1.0f).setDuration(140).start()
+                view.elevation = 2f
+            }
+        }
 
-    private fun saveApiKey(key: String) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_API_KEY, key.trim()).apply()
+        binding.btnToggleService.onFocusChangeListener = tvFocusListener
+        binding.btnTestOverlay.onFocusChangeListener = tvFocusListener
+        binding.btnGrantOverlay.onFocusChangeListener = tvFocusListener
     }
 
     private fun setupListeners() {
         binding.btnToggleService.setOnClickListener {
-            val key = binding.etApiKey.text.toString().trim()
-            saveApiKey(key)
-
             if (FactCheckForegroundService.isRunning) {
                 stopMonitoringService()
             } else {
@@ -107,10 +116,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startMonitoringService() {
-        val key = binding.etApiKey.text.toString().trim()
         val intent = Intent(this, FactCheckForegroundService::class.java).apply {
             action = FactCheckForegroundService.ACTION_START
-            putExtra(FactCheckForegroundService.EXTRA_API_KEY, key)
+            putExtra(FactCheckForegroundService.EXTRA_API_KEY, EMBEDDED_MINIMAX_KEY)
         }
         startForegroundService(intent)
         updateServiceUI()
@@ -130,21 +138,20 @@ class MainActivity : AppCompatActivity() {
             binding.tvStatus.text = getString(R.string.status_service_running)
             binding.tvStatus.setTextColor(Color.parseColor("#10B981"))
             binding.btnToggleService.text = getString(R.string.btn_stop_service)
-            binding.btnToggleService.setBackgroundColor(Color.parseColor("#EF4444"))
         } else {
             binding.tvStatus.text = getString(R.string.status_service_stopped)
             binding.tvStatus.setTextColor(Color.parseColor("#EF4444"))
             binding.btnToggleService.text = getString(R.string.btn_start_service)
-            binding.btnToggleService.setBackgroundColor(Color.parseColor("#10B981"))
         }
 
         if (Settings.canDrawOverlays(this)) {
-            binding.btnGrantOverlay.text = "✓ Permissão de Sobreposição Concedida"
+            binding.btnGrantOverlay.text = "✓ Permissão de Sobreposição Ativa"
             binding.btnGrantOverlay.isEnabled = false
             binding.btnGrantOverlay.setTextColor(Color.parseColor("#10B981"))
         } else {
             binding.btnGrantOverlay.text = getString(R.string.btn_permission_overlay)
             binding.btnGrantOverlay.isEnabled = true
+            binding.btnGrantOverlay.setTextColor(Color.parseColor("#FFFFFF"))
         }
     }
 
