@@ -67,6 +67,8 @@ class FactCheckForegroundService : LifecycleService() {
         return START_STICKY
     }
 
+    private var speechRecognitionManager: com.factcheck.tv.audio.SpeechRecognitionManager? = null
+
     private fun startForegroundMonitoring() {
         if (isRunning) return
 
@@ -79,24 +81,27 @@ class FactCheckForegroundService : LifecycleService() {
         isRunning = true
         Log.i("FactCheckService", "Monitoramento em segundo plano iniciado na TV")
 
-        // Inicializa captura de áudio contínua
-        audioCaptureManager = AudioCaptureManager { audioChunk ->
-            processAudioChunk(audioChunk)
+        // Inicializa reconhecimento de voz nativo contínuo em português (pt-BR)
+        speechRecognitionManager = com.factcheck.tv.audio.SpeechRecognitionManager(this) { spokenText ->
+            processLiveTranscript(spokenText)
         }
-        audioCaptureManager?.startCapture(lifecycleScope)
+        speechRecognitionManager?.startListening()
     }
 
-    private fun processAudioChunk(audioChunk: ByteArray) {
+    private fun processLiveTranscript(spokenText: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Em um ambiente de produção completo, o áudio é transcrito via API de voz.
-                // Aqui demonstramos a ponte direta enviando os trechos para análise da MiniMax
-                Log.d("FactCheckService", "Processando bloco de áudio da TV (${audioChunk.size} bytes)...")
-                
-                // Exemplo de transcrição capturada para verificação
-                // (Integrado diretamente com a API MiniMax Text-01)
+                Log.i("FactCheckService", "Analisando com MiniMax: \"$spokenText\"")
+                val result = miniMaxClient.checkTranscript(spokenText)
+                if (result != null && result.hasClaim) {
+                    val verdictUpper = result.verdict.uppercase()
+                    if (verdictUpper == "FALSO" || verdictUpper == "ENGANOSO" || verdictUpper.contains("FALS") || verdictUpper.contains("ENGAN")) {
+                        Log.w("FactCheckService", "ALEGAÇÃO IDENTIFICADA COMO ${result.verdict}! Exibindo alerta na TV...")
+                        overlayManager.showFactCheckAlert(result)
+                    }
+                }
             } catch (e: Exception) {
-                Log.e("FactCheckService", "Erro no processamento do áudio: ${e.message}")
+                Log.e("FactCheckService", "Erro ao processar transcrição: ${e.message}")
             }
         }
     }
@@ -115,6 +120,8 @@ class FactCheckForegroundService : LifecycleService() {
 
     private fun stopForegroundMonitoring() {
         isRunning = false
+        speechRecognitionManager?.stopListening()
+        speechRecognitionManager = null
         audioCaptureManager?.stopCapture()
         audioCaptureManager = null
         overlayManager.hideAlert()
