@@ -19,6 +19,7 @@ import com.factcheck.tv.api.MiniMaxClient
 import com.factcheck.tv.audio.SpeechRecognitionManager
 import com.factcheck.tv.overlay.FactCheckOverlayManager
 import com.factcheck.tv.sources.FactCheckSourcesManager
+import com.factcheck.tv.sources.MancheteScannerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -28,6 +29,7 @@ class FactCheckForegroundService : LifecycleService() {
     private lateinit var overlayManager: FactCheckOverlayManager
     private lateinit var miniMaxClient: MiniMaxClient
     private lateinit var sourcesManager: FactCheckSourcesManager
+    private lateinit var mancheteScanner: MancheteScannerManager
     private var speechRecognitionManager: SpeechRecognitionManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -39,6 +41,7 @@ class FactCheckForegroundService : LifecycleService() {
         const val ACTION_STOP = "com.factcheck.tv.STOP"
         const val ACTION_TRIGGER_TEST = "com.factcheck.tv.TRIGGER_TEST"
         const val ACTION_TRIGGER_POLITICAL_TEST = "com.factcheck.tv.TRIGGER_POLITICAL_TEST"
+        const val ACTION_CAPTURE_MANCHETE = "com.factcheck.tv.CAPTURE_MANCHETE"
 
         const val EXTRA_API_KEY = "extra_api_key"
 
@@ -51,6 +54,7 @@ class FactCheckForegroundService : LifecycleService() {
         overlayManager = FactCheckOverlayManager(this)
         miniMaxClient = MiniMaxClient("")
         sourcesManager = FactCheckSourcesManager()
+        mancheteScanner = MancheteScannerManager()
         createNotificationChannel()
     }
 
@@ -72,9 +76,33 @@ class FactCheckForegroundService : LifecycleService() {
             ACTION_TRIGGER_POLITICAL_TEST -> {
                 showPoliticalDebateMock()
             }
+            ACTION_CAPTURE_MANCHETE -> {
+                captureAndCheckManchete()
+            }
         }
 
         return START_STICKY
+    }
+
+    private fun captureAndCheckManchete() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                overlayManager.updateAmbientStatus("📺 Lendo Manchete da TV...")
+                val headline = mancheteScanner.getTopBreakingHeadline()
+                if (!headline.isNullOrBlank()) {
+                    Log.i("FactCheckService", "MANCHETE CAPTURADA DA TV: \"$headline\"")
+                    overlayManager.updateAmbientStatus("⚡ Checando: \"${headline.take(22)}...\"")
+                    processLiveTranscript("MANCHETE EXIBIDA NA TELA DA TV: $headline")
+                } else {
+                    overlayManager.updateAmbientStatus("⚠️ Nenhuma manchete no momento")
+                    delay(3000)
+                    overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
+                }
+            } catch (e: Exception) {
+                Log.e("FactCheckService", "Erro ao capturar manchete: ${e.message}")
+                overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
+            }
+        }
     }
 
     private fun startForegroundMonitoring() {

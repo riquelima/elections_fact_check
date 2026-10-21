@@ -38,39 +38,39 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
           # Encontra o APK gerado e copia com o nome padronizado oficial
           APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$APK_FILE" TVFactChecker_v1.0.4.apk
-          ls -lh TVFactChecker_v1.0.4.apk
+          cp "$APK_FILE" TVFactChecker_v1.0.5.apk
+          ls -lh TVFactChecker_v1.0.5.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVFactChecker_v1.0.4
-          path: TVFactChecker_v1.0.4.apk
+          name: TVFactChecker_v1.0.5
+          path: TVFactChecker_v1.0.5.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.4
-          name: TV Fact Checker v1.0.4
+          tag_name: v1.0.5
+          name: TV Fact Checker v1.0.5
           body: |
-            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.0.4)
+            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.0.5)
             
-            Versão oficial compilada: **TVFactChecker_v1.0.4.apk**
+            Versão oficial compilada: **TVFactChecker_v1.0.5.apk**
             
-            ### 🏛️ Novidades da versão 1.0.4:
-            - **Eliminação Completa do Radar Aleatório:** Nenhum card genérico ou aleatório (ex: IBGE) será exibido. O app analisa **estritamente o que foi ouvido da TV em tempo real**.
-            - **Conexão Direta com as Maiores Agências de Checagem do Brasil:** Integração em tempo real com feeds oficiais da **Aos Fatos** e **Agência Lupa** (IFCN), além de bases do **TSE**, **STF**, **IBGE** e **Banco Central**.
-            - **Especializado em Debates Políticos e Eleições:** Prompt neural calibrado para desmentir distorções eleitorais, acusações e declarações políticas (ex: Lula, Flávio Bolsonaro, campanhas).
-            - **Novo Botão de Teste de Debate Político no Menu:** Permite testar imediatamente a checagem de debate eleitoral com o controle remoto.
+            ### 🚀 Novidades da versão 1.0.5:
+            - **Janela Deslizante de 6.5s (Rolling Flush):** Corrige o travamento em 'Captando áudio'. Em telejornais ao vivo (GloboNews), os apresentadores falam sem pausas; agora o áudio é cortado e despachado automaticamente a cada 6.5 segundos!
+            - **Motor de Leitura de Manchetes da TV (MancheteScanner):** Novo motor capaz de ler e checar em tempo real as manchetes, tarjas e geradores de caracteres (GC) exibidos na tela dos jornais!
+            - **Novo Botão no Menu:** `📺 Capturar e Checar Manchete da TV` diretamente pelo controle remoto.
+            - **Agências IFCN Integradas:** Cruzamento em tempo real com **Aos Fatos** e **Agência Lupa**, além de dados do **TSE**, **STF** e **IBGE**.
             
             ### Como instalar na sua TV / uniTV:
-            1. Baixe o arquivo **`TVFactChecker_v1.0.4.apk`** abaixo.
+            1. Baixe o arquivo **`TVFactChecker_v1.0.5.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
             4. Conceda as permissões de sobreposição de tela e microfone.
             5. Inicie o monitoramento!
-          files: TVFactChecker_v1.0.4.apk
+          files: TVFactChecker_v1.0.5.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

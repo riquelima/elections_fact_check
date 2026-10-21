@@ -147,9 +147,26 @@
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:nextFocusUp="@id/btnTestOverlay"
+            android:nextFocusDown="@id/btnCaptureManchete" />
+
+        <!-- Button 4: Capture & Check TV Manchete / Tarja -->
+        <Button
+            android:id="@+id/btnCaptureManchete"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📺 Capturar e Checar Manchete da TV"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_button_selector"
+            android:padding="16dp"
+            android:textStyle="bold"
+            android:textSize="13.5sp"
+            android:layout_marginBottom="12dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusUp="@id/btnTestPolitical"
             android:nextFocusDown="@id/btnGrantOverlay" />
 
-        <!-- Button 4: Grant Overlay Permission -->
+        <!-- Button 5: Grant Overlay Permission -->
         <Button
             android:id="@+id/btnGrantOverlay"
             android:layout_width="match_parent"
@@ -162,7 +179,7 @@
             android:textSize="13sp"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnTestPolitical" />
+            android:nextFocusUp="@id/btnCaptureManchete" />
 
         <TextView
             android:layout_width="match_parent"

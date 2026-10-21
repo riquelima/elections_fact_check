@@ -11,8 +11,8 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 
 /**
- * Escuta contínua de reconhecimento de voz em português (pt-BR) para transmissões de TV e debates.
- * Transmite telemetria ao vivo para a pílula flutuante no canto da tela.
+ * Escuta contínua com Janela Deslizante (Rolling Flush) de 6.5 segundos para transmissões de TV ao vivo.
+ * Não depende de silêncio para processar a fala de apresentadores que falam sem parar.
  */
 class SpeechRecognitionManager(
     private val context: Context,
@@ -24,6 +24,9 @@ class SpeechRecognitionManager(
     private var speechRecognizer: SpeechRecognizer? = null
     private var isListening = false
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var accumulatedSpeech = ""
+    private var speechTimeoutRunnable: Runnable? = null
 
     var isEngineAvailable = false
         private set
@@ -45,6 +48,7 @@ class SpeechRecognitionManager(
     }
 
     private fun initRecognizer() {
+        cancelSpeechTimer()
         try {
             speechRecognizer?.destroy()
         } catch (e: Exception) {
@@ -59,25 +63,31 @@ class SpeechRecognitionManager(
                     }
 
                     override fun onBeginningOfSpeech() {
-                        onStatusChanged("🎙️ Captando áudio...")
+                        onStatusChanged("🎙️ Captando fala da TV...")
+                        startSpeechFlushTimer()
                     }
 
-                    override fun onRmsChanged(rmsdB: Float) {
-                        // Se houver volume alto do apresentador
-                        if (rmsdB > 5.0f) {
-                            Log.d("SpeechRecognizer", "Volume da TV: $rmsdB dB")
-                        }
-                    }
-
+                    override fun onRmsChanged(rmsdB: Float) {}
                     override fun onBufferReceived(buffer: ByteArray?) {}
                     override fun onEndOfSpeech() {}
 
                     override fun onError(error: Int) {
+                        cancelSpeechTimer()
+                        val pendingText = accumulatedSpeech.trim()
+                        accumulatedSpeech = ""
+
+                        // Se já tínhamos capturado uma frase antes do evento de término, despacha imediatamente
+                        if (pendingText.length >= 8) {
+                            Log.i("SpeechRecognizer", "Despachando fala acumulada no encerramento: \"$pendingText\"")
+                            val preview = if (pendingText.length > 24) pendingText.take(24) + "..." else pendingText
+                            onStatusChanged("⚡ Checando: \"$preview\"")
+                            onTranscriptRecognized(pendingText)
+                        }
+
                         when (error) {
                             SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                                // Pausa do apresentador: reinicia escuta rapidamente
                                 onStatusChanged("🎙️ Ouvindo TV...")
-                                restartListeningLoop(delayMs = 250)
+                                restartListeningLoop(delayMs = 200)
                             }
                             SpeechRecognizer.ERROR_CLIENT, SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
                                 Log.w("SpeechRecognizer", "Código STT: $error (recriando recognizer...)")
@@ -87,26 +97,27 @@ class SpeechRecognitionManager(
                                         initRecognizer()
                                         beginListeningLoop()
                                     }
-                                }, 1500)
+                                }, 1200)
                             }
                             else -> {
                                 Log.w("SpeechRecognizer", "STT Evento código $error. Reiniciando ciclo...")
                                 onStatusChanged("🎙️ Ouvindo TV...")
-                                restartListeningLoop(delayMs = 1200)
+                                restartListeningLoop(delayMs = 800)
                             }
                         }
                     }
 
                     override fun onResults(results: Bundle?) {
+                        cancelSpeechTimer()
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        if (!matches.isNullOrEmpty()) {
-                            val text = matches[0].trim()
-                            if (text.length >= 6) {
-                                val preview = if (text.length > 24) text.take(24) + "..." else text
-                                onStatusChanged("⚡ Checando: \"$preview\"")
-                                Log.i("SpeechRecognizer", "FALA RECONHECIDA NA TV: \"$text\"")
-                                onTranscriptRecognized(text)
-                            }
+                        val text = if (!matches.isNullOrEmpty()) matches[0].trim() else accumulatedSpeech.trim()
+                        accumulatedSpeech = ""
+
+                        if (text.length >= 7) {
+                            val preview = if (text.length > 24) text.take(24) + "..." else text
+                            onStatusChanged("⚡ Checando: \"$preview\"")
+                            Log.i("SpeechRecognizer", "FALA RECONHECIDA NA TV (onResults): \"$text\"")
+                            onTranscriptRecognized(text)
                         }
                         restartListeningLoop(delayMs = 200)
                     }
@@ -116,7 +127,8 @@ class SpeechRecognitionManager(
                         if (!matches.isNullOrEmpty()) {
                             val partial = matches[0].trim()
                             if (partial.isNotBlank()) {
-                                val preview = if (partial.length > 22) partial.take(22) + "..." else partial
+                                accumulatedSpeech = partial
+                                val preview = if (partial.length > 24) partial.take(24) + "..." else partial
                                 onStatusChanged("🎙️ \"$preview\"")
                             }
                         }
@@ -131,10 +143,49 @@ class SpeechRecognitionManager(
         }
     }
 
+    /**
+     * Janela Deslizante de 6.5 segundos: em telejornais ao vivo (GloboNews), os apresentadores
+     * falam sem fazer pausas de silêncio. Este timer garante que cada trecho de 6.5s de fala contínua
+     * seja despachado para checagem imediatamente.
+     */
+    private fun startSpeechFlushTimer() {
+        cancelSpeechTimer()
+        speechTimeoutRunnable = Runnable {
+            if (!isListening) return@Runnable
+
+            val textToDispatch = accumulatedSpeech.trim()
+            if (textToDispatch.length >= 8) {
+                accumulatedSpeech = ""
+                Log.i("SpeechRecognizer", "Janela de 6.5s atingida (fala contínua). Despachando: \"$textToDispatch\"")
+                val preview = if (textToDispatch.length > 24) textToDispatch.take(24) + "..." else textToDispatch
+                onStatusChanged("⚡ Checando: \"$preview\"")
+                onTranscriptRecognized(textToDispatch)
+
+                // Reinicia a escuta para capturar a frase seguinte
+                try {
+                    speechRecognizer?.stopListening()
+                } catch (e: Exception) {
+                    Log.e("SpeechRecognizer", "Erro ao parar ciclo: ${e.message}")
+                }
+                restartListeningLoop(delayMs = 250)
+            } else {
+                // Se ainda foi muito curto, aguarda mais um pouco
+                startSpeechFlushTimer()
+            }
+        }
+        mainHandler.postDelayed(speechTimeoutRunnable!!, 6500L)
+    }
+
+    private fun cancelSpeechTimer() {
+        speechTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        speechTimeoutRunnable = null
+    }
+
     private fun beginListeningLoop() {
         if (!isListening) return
 
         try {
+            accumulatedSpeech = ""
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
@@ -160,6 +211,7 @@ class SpeechRecognitionManager(
 
     fun stopListening() {
         isListening = false
+        cancelSpeechTimer()
         mainHandler.post {
             try {
                 speechRecognizer?.stopListening()
