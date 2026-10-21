@@ -12,6 +12,7 @@ import com.factcheck.tv.api.MiniMaxClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -19,9 +20,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * Motor de Streaming de Áudio Contínuo em Baixo Nível (AudioRecord) para Smart TVs e TV Boxes.
- * Lê o fluxo PCM da TV ininterruptamente a 16kHz, calcula energia sonora (RMS) e
- * despacha blocos de fala diretamente para o motor neural da IA em tempo real.
+ * Motor de Streaming de Áudio com Janela de Contexto de 1 Minuto para Smart TVs e TV Boxes.
+ * Lê o áudio ambiente da TV ininterruptamente a 16kHz PCM, transcreve em sub-blocos e
+ * acumula 1 minuto completo de fala para gerar uma checagem precisa e contextualizada na IA.
  */
 class StreamingAudioRecordManager(
     private val context: Context,
@@ -37,18 +38,29 @@ class StreamingAudioRecordManager(
     @Volatile
     private var isStreaming = false
     private var streamJob: Job? = null
+    private var tickerJob: Job? = null
+
+    @Volatile
+    var isAnalyzing = false
+
+    @Volatile
+    private var windowStartTime = System.currentTimeMillis()
+    private val minuteTranscriptAccumulator = StringBuilder()
+    private val accumulatorLock = Any()
 
     companion object {
         const val SAMPLE_RATE = 16000
         const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+        const val CONTEXT_WINDOW_SECONDS = 60 // 1 minuto de contexto
+        const val SUB_CHUNK_MS = 14_000L // Sub-blocos de 14 segundos para transcrição rápida
 
         /**
          * Empacota o buffer PCM bruto em um arquivo WAV de 16kHz Mono 16-bit com cabeçalho RIFF de 44 bytes.
          */
         fun pcmToWav(pcmData: ByteArray): ByteArray {
             val totalDataLen = pcmData.size + 36
-            val byteRate = SAMPLE_RATE * 1 * 2 // 16000 * 1 canal * 2 bytes por amostra = 32000
+            val byteRate = SAMPLE_RATE * 1 * 2
             val header = ByteArray(44)
             val buffer = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
 
@@ -56,13 +68,13 @@ class StreamingAudioRecordManager(
             buffer.putInt(totalDataLen)
             buffer.put("WAVE".toByteArray())
             buffer.put("fmt ".toByteArray())
-            buffer.putInt(16) // Subchunk1Size (16 para PCM)
-            buffer.putShort(1.toShort()) // Formato de áudio 1 = PCM
-            buffer.putShort(1.toShort()) // 1 canal (Mono)
+            buffer.putInt(16)
+            buffer.putShort(1.toShort())
+            buffer.putShort(1.toShort())
             buffer.putInt(SAMPLE_RATE)
             buffer.putInt(byteRate)
-            buffer.putShort(2.toShort()) // BlockAlign (canais * bits / 8)
-            buffer.putShort(16.toShort()) // 16 bits por amostra
+            buffer.putShort(2.toShort())
+            buffer.putShort(16.toShort())
             buffer.put("data".toByteArray())
             buffer.putInt(pcmData.size)
 
@@ -77,8 +89,27 @@ class StreamingAudioRecordManager(
     fun startStreaming() {
         if (isStreaming) return
         isStreaming = true
+        isAnalyzing = false
+        windowStartTime = System.currentTimeMillis()
+        synchronized(accumulatorLock) {
+            minuteTranscriptAccumulator.setLength(0)
+        }
 
-        mainHandler.post { onStatusChanged("🎙️ Conectando motor de stream...") }
+        mainHandler.post { onStatusChanged("🎙️ Ouvindo TV... (0s/60s)") }
+
+        // Ticker suave de progresso a cada segundo
+        tickerJob?.cancel()
+        tickerJob = scope.launch {
+            while (isStreaming && isActive) {
+                delay(1000L)
+                if (!isAnalyzing) {
+                    val elapsedSec = ((System.currentTimeMillis() - windowStartTime) / 1000).toInt().coerceIn(0, CONTEXT_WINDOW_SECONDS)
+                    mainHandler.post {
+                        onStatusChanged("🎙️ Ouvindo TV... (${elapsedSec}s/60s)")
+                    }
+                }
+            }
+        }
 
         streamJob = scope.launch {
             try {
@@ -94,80 +125,84 @@ class StreamingAudioRecordManager(
                 )
 
                 if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                    Log.e("AudioStream", "AudioRecord não pôde ser inicializado pelo hardware")
+                    Log.e("AudioStream", "AudioRecord não pôde ser inicializado")
                     mainHandler.post { onStatusChanged("⚠️ Microfone indisponível") }
                     return@launch
                 }
 
                 audioRecord?.startRecording()
-                Log.i("AudioStream", "Motor de Streaming Contínuo INICIADO a 16kHz PCM.")
-                mainHandler.post { onStatusChanged("🎙️ Ouvindo TV ao vivo...") }
+                Log.i("AudioStream", "Motor de Escuta Contínua com Janela de 1 Minuto INICIADO.")
 
                 val readBuffer = ByteArray(2048)
-                val chunkAccumulator = ByteArrayOutputStream()
-                var chunkStartTime = System.currentTimeMillis()
+                val subChunkAccumulator = ByteArrayOutputStream()
+                var subChunkStartTime = System.currentTimeMillis()
                 var activeSpeechFrames = 0
-                var silenceFrames = 0
 
                 while (isStreaming && isActive) {
                     val bytesRead = audioRecord?.read(readBuffer, 0, readBuffer.size) ?: -1
                     if (bytesRead > 0) {
                         val rms = calculateRms(readBuffer, bytesRead)
-                        val isSoundDetected = rms > 25.0 // Limiar para detectar fala/som da TV
-
-                        chunkAccumulator.write(readBuffer, 0, bytesRead)
-                        if (isSoundDetected) {
+                        if (rms > 25.0) {
                             activeSpeechFrames++
-                            silenceFrames = 0
-                        } else {
-                            silenceFrames++
                         }
+                        subChunkAccumulator.write(readBuffer, 0, bytesRead)
 
-                        val elapsedMs = System.currentTimeMillis() - chunkStartTime
+                        val subElapsedMs = System.currentTimeMillis() - subChunkStartTime
+                        val totalWindowElapsedMs = System.currentTimeMillis() - windowStartTime
 
-                        // Corta em blocos de 3.8s a 4.5s de fala da TV
-                        val shouldFlush = (elapsedMs >= 4200L) || (elapsedMs >= 2600L && silenceFrames >= 4)
-
-                        if (shouldFlush) {
-                            val pcmBytes = chunkAccumulator.toByteArray()
-                            chunkAccumulator.reset()
-                            chunkStartTime = System.currentTimeMillis()
-                            val hadSpeech = activeSpeechFrames >= 2
+                        // 1. Processa sub-bloco de áudio a cada 14 segundos
+                        if (subElapsedMs >= SUB_CHUNK_MS) {
+                            val pcmBytes = subChunkAccumulator.toByteArray()
+                            subChunkAccumulator.reset()
+                            subChunkStartTime = System.currentTimeMillis()
+                            val hadSpeech = activeSpeechFrames >= 3
                             activeSpeechFrames = 0
-                            silenceFrames = 0
 
                             if (hadSpeech && pcmBytes.isNotEmpty()) {
-                                mainHandler.post { onStatusChanged("⚡ Processando áudio da TV...") }
-                                val wavBytes = pcmToWav(pcmBytes)
-
-                                // Envia o bloco para transcrição neural sem travar a escuta ininterrupta
                                 launch(Dispatchers.IO) {
                                     try {
+                                        val wavBytes = pcmToWav(pcmBytes)
                                         val transcript = miniMaxClient.transcribeAudioChunk(wavBytes)
-                                        if (!transcript.isNullOrBlank() && transcript.trim().length >= 6) {
+                                        if (!transcript.isNullOrBlank() && transcript.trim().length >= 5) {
                                             val cleanText = transcript.trim()
-                                            Log.i("AudioStream", "FALA RECONHECIDA NO STREAM DA TV: \"$cleanText\"")
-                                            mainHandler.post {
-                                                val preview = if (cleanText.length > 24) cleanText.take(24) + "..." else cleanText
-                                                onStatusChanged("⚡ Checando: \"$preview\"")
+                                            synchronized(accumulatorLock) {
+                                                if (minuteTranscriptAccumulator.isNotEmpty()) {
+                                                    minuteTranscriptAccumulator.append(" ")
+                                                }
+                                                minuteTranscriptAccumulator.append(cleanText)
                                             }
-                                            onTranscriptRecognized(cleanText)
-                                        } else {
-                                            mainHandler.post { onStatusChanged("🎙️ Ouvindo TV...") }
+                                            Log.d("AudioStream", "Trecho transcrito: \"$cleanText\" | Total acumulado no minuto: ${minuteTranscriptAccumulator.length} chars")
                                         }
                                     } catch (e: Exception) {
-                                        Log.w("AudioStream", "Erro ao transcrever trecho: ${e.message}")
-                                        mainHandler.post { onStatusChanged("🎙️ Ouvindo TV...") }
+                                        Log.w("AudioStream", "Erro ao transcrever sub-bloco: ${e.message}")
                                     }
                                 }
+                            }
+                        }
+
+                        // 2. Quando completa a janela de 60 segundos (1 minuto)
+                        if (totalWindowElapsedMs >= CONTEXT_WINDOW_SECONDS * 1000L) {
+                            windowStartTime = System.currentTimeMillis()
+                            val fullContextText = synchronized(accumulatorLock) {
+                                val text = minuteTranscriptAccumulator.toString().trim()
+                                minuteTranscriptAccumulator.setLength(0)
+                                text
+                            }
+
+                            if (fullContextText.length >= 25) {
+                                Log.i("AudioStream", "=== 1 MINUTO DE CONTEXTO COLETADO: \"$fullContextText\" ===")
+                                isAnalyzing = true
+                                mainHandler.post { onStatusChanged("⚡ Analisando contexto de 1 min...") }
+                                onTranscriptRecognized(fullContextText)
                             } else {
-                                mainHandler.post { onStatusChanged("🎙️ Ouvindo TV...") }
+                                Log.i("AudioStream", "Janela de 1 min com pouca fala (${fullContextText.length} chars). Continuando escuta.")
+                                mainHandler.post { onStatusChanged("🎙️ Ouvindo TV... (0s/60s)") }
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                Log.e("AudioStream", "Erro fatal no loop de streaming de áudio: ${e.message}", e)
+                Log.e("AudioStream", "Erro no loop de streaming de áudio: ${e.message}", e)
                 mainHandler.post { onStatusChanged("🎙️ Reconectando áudio...") }
             } finally {
                 releaseAudioRecord()
@@ -201,6 +236,9 @@ class StreamingAudioRecordManager(
 
     fun stopStreaming() {
         isStreaming = false
+        isAnalyzing = false
+        tickerJob?.cancel()
+        tickerJob = null
         streamJob?.cancel()
         streamJob = null
         releaseAudioRecord()

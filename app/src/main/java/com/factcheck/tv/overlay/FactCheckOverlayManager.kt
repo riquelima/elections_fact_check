@@ -28,14 +28,19 @@ class FactCheckOverlayManager(private val context: Context) {
     private var pulseAnimator: ObjectAnimator? = null
     private var lastStatusUpdateTimestamp = 0L
 
+    var isAlertShowing: Boolean = false
+        private set
+
     fun canDrawOverlays(): Boolean {
         return Settings.canDrawOverlays(context)
     }
 
     /**
-     * Atualiza o texto da pílula com o estado real do áudio e análise (ex: 'Ouvindo TV...', 'Analisando...').
+     * Atualiza o texto da pílula com o estado real do áudio e análise (ex: 'Ouvindo TV (25s/60s)...').
+     * Se houver um card ativo na tela, preserva o status do veredito.
      */
     fun updateAmbientStatus(statusText: String) {
+        if (isAlertShowing && !statusText.startsWith("⚡")) return
         lastStatusUpdateTimestamp = System.currentTimeMillis()
         mainHandler.post {
             overlayRootView?.findViewById<TextView>(R.id.tvAmbientStatus)?.text = statusText
@@ -103,6 +108,10 @@ class FactCheckOverlayManager(private val context: Context) {
      */
     fun showFactCheckAlert(result: FactCheckResult) {
         if (!canDrawOverlays()) return
+        if (isAlertShowing) {
+            Log.i("OverlayManager", "Card já está aberto na tela. Mantendo leitura atual.")
+            return
+        }
 
         mainHandler.post {
             val root = overlayRootView
@@ -125,12 +134,13 @@ class FactCheckOverlayManager(private val context: Context) {
                 tvSource.text = "Fonte: ${result.source}"
 
                 val (badgeText, badgeBgColor, durationMs) = when (result.verdict.uppercase()) {
-                    "FALSO" -> Triple("🔴 FALSO", Color.parseColor("#EF4444"), 14000L)
-                    "ENGANOSO" -> Triple("🟡 ENGANOSO / DISTORCIDO", Color.parseColor("#F59E0B"), 14000L)
-                    "VERDADEIRO" -> Triple("🟢 VERDADEIRO", Color.parseColor("#10B981"), 9000L)
-                    else -> Triple("ℹ️ FATO CHECADO", Color.parseColor("#3B82F6"), 10000L)
+                    "FALSO" -> Triple("🔴 FALSO", Color.parseColor("#EF4444"), 16000L)
+                    "ENGANOSO" -> Triple("🟡 ENGANOSO / DISTORCIDO", Color.parseColor("#F59E0B"), 16000L)
+                    "VERDADEIRO" -> Triple("🟢 VERDADEIRO", Color.parseColor("#10B981"), 14000L)
+                    else -> Triple("ℹ️ FATO CHECADO", Color.parseColor("#3B82F6"), 12000L)
                 }
 
+                isAlertShowing = true
                 tvBadge.text = badgeText
                 (tvBadge.background as? GradientDrawable)?.setColor(badgeBgColor)
                     ?: run { tvBadge.setBackgroundColor(badgeBgColor) }
@@ -152,7 +162,8 @@ class FactCheckOverlayManager(private val context: Context) {
                         // Recolhe de volta para a pílula ambiente
                         expandedCard.animate().alpha(0.0f).setDuration(250).withEndAction {
                             expandedCard.visibility = View.GONE
-                            tvAmbientStatus.text = "🎙️ Ouvindo TV..."
+                            isAlertShowing = false
+                            tvAmbientStatus.text = "🎙️ Ouvindo TV... (0s/60s)"
                         }.start()
                     }
                 }.start()
@@ -160,7 +171,8 @@ class FactCheckOverlayManager(private val context: Context) {
                 expandedCard.setOnClickListener {
                     dismissTimer?.cancel()
                     expandedCard.visibility = View.GONE
-                    tvAmbientStatus.text = "🎙️ Ouvindo TV..."
+                    isAlertShowing = false
+                    tvAmbientStatus.text = "🎙️ Ouvindo TV... (0s/60s)"
                 }
             }, 100)
         }
@@ -171,6 +183,7 @@ class FactCheckOverlayManager(private val context: Context) {
      */
     fun hideAll() {
         mainHandler.post {
+            isAlertShowing = false
             dismissTimer?.cancel()
             dismissTimer = null
 
