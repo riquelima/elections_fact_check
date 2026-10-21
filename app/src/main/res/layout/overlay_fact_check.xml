@@ -35,15 +35,6 @@
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tvAmbientCounter"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=" • IA Ativa"
-            android:textColor="#10B981"
-            android:textSize="11sp"
-            android:textStyle="bold" />
     </LinearLayout>
 
     <!-- 2. EXPANDED FACT-CHECK ALERT CARD (Expands when claim is false/misleading) -->
