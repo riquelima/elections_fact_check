@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <!-- Gradient Background -->
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M0,0 H320 V180 H0 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M0,120 H320 V180 H0 Z" />
+    <!-- TV Logo Mark -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M130,40 H190 V80 H130 Z" />
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M134,44 H186 V76 H134 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M148,60 L156,68 L172,52 L168,48 L156,60 L152,56 Z" />
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M152,82 H168 V88 H152 Z" />
+</vector>

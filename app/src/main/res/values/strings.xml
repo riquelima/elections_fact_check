@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TV Fact Checker AI</string>
+    <string name="app_tagline">Fact-checking em tempo real para TV aberta com MiniMax AI</string>
+    <string name="status_service_running">● Monitoramento ATIVO (Ouvindo a TV)</string>
+    <string name="status_service_stopped">○ Monitoramento DESATIVADO</string>
+    <string name="btn_start_service">Iniciar Monitoramento em Segundo Plano</string>
+    <string name="btn_stop_service">Parar Monitoramento</string>
+    <string name="btn_test_overlay">Testar Alerta na TV (Simulação)</string>
+    <string name="btn_permission_overlay">Conceder Permissão de Sobreposição</string>
+    <string name="hint_api_key">Chave de API MiniMax</string>
+    <string name="notification_title">TV Fact Checker Ativo</string>
+    <string name="notification_desc">Ouvindo e analisando notícias em tempo real...</string>
+    <string name="channel_name">Monitoramento de Notícias</string>
+    <string name="channel_desc">Notificação persistente de escuta de TV</string>
+</resources>

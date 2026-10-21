@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+    <!-- Outer Shield / Circle -->
+    <path
+        android:fillColor="#1E293B"
+        android:pathData="M64,8 C94.928,8 120,33.072 120,64 C120,94.928 94.928,120 64,120 C33.072,120 8,94.928 8,64 C8,33.072 33.072,8 64,8 Z" />
+    <!-- TV Antenna / Frame Accent -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M38,36 L64,52 L90,36 L64,48 Z" />
+    <!-- TV Screen Box -->
+    <path
+        android:fillColor="#0F172A"
+        android:strokeColor="#10B981"
+        android:strokeWidth="4"
+        android:pathData="M28,48 H100 V88 H28 Z" />
+    <!-- Checkmark & Search Pulse -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M48,68 L58,78 L80,56 L74,50 L58,66 L54,62 Z" />
+</vector>
