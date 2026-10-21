@@ -99,7 +99,23 @@
             android:letterSpacing="0.08"
             android:layout_marginBottom="20dp" />
 
-        <!-- Button 1: Toggle Monitoring (Main Action) -->
+        <!-- Button 1: Grant All TV Permissions (Overlay, Audio, Screen Capture) -->
+        <Button
+            android:id="@+id/btnGrantPermissions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Conceder Permissões da TV"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/bg_button_selector"
+            android:padding="20dp"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:nextFocusDown="@id/btnToggleService" />
+
+        <!-- Button 2: Toggle Monitoring (Main Service Action) -->
         <Button
             android:id="@+id/btnToggleService"
             android:layout_width="match_parent"
@@ -107,86 +123,21 @@
             android:text="@string/btn_start_service"
             android:textColor="#FFFFFF"
             android:background="@drawable/bg_button_selector"
-            android:padding="18dp"
+            android:padding="20dp"
             android:textStyle="bold"
-            android:textSize="15sp"
-            android:layout_marginBottom="14dp"
+            android:textSize="16sp"
+            android:layout_marginBottom="16dp"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:nextFocusDown="@id/btnTestOverlay" />
-
-        <!-- Button 2: Test Standard Live Overlay -->
-        <Button
-            android:id="@+id/btnTestOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_test_overlay"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/bg_button_selector"
-            android:padding="16dp"
-            android:textStyle="bold"
-            android:textSize="13.5sp"
-            android:layout_marginBottom="12dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnToggleService"
-            android:nextFocusDown="@id/btnTestPolitical" />
-
-        <!-- Button 3: Test Political Debate Claim (Lula x Flávio Bolsonaro) -->
-        <Button
-            android:id="@+id/btnTestPolitical"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Testar: Debate Político (Lula x Flávio Bolsonaro)"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/bg_button_selector"
-            android:padding="16dp"
-            android:textStyle="bold"
-            android:textSize="13.5sp"
-            android:layout_marginBottom="12dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnTestOverlay"
-            android:nextFocusDown="@id/btnCaptureManchete" />
-
-        <!-- Button 4: Capture & Check TV Manchete / Tarja -->
-        <Button
-            android:id="@+id/btnCaptureManchete"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="📺 Capturar e Checar Manchete da TV"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/bg_button_selector"
-            android:padding="16dp"
-            android:textStyle="bold"
-            android:textSize="13.5sp"
-            android:layout_marginBottom="12dp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnTestPolitical"
-            android:nextFocusDown="@id/btnGrantOverlay" />
-
-        <!-- Button 5: Grant Overlay Permission -->
-        <Button
-            android:id="@+id/btnGrantOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_permission_overlay"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/bg_button_selector"
-            android:padding="16dp"
-            android:textStyle="bold"
-            android:textSize="13sp"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:nextFocusUp="@id/btnCaptureManchete" />
+            android:nextFocusUp="@id/btnGrantPermissions" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Dica: Use as setas do controle remoto para navegar. O botão selecionado ficará iluminado em verde com contorno branco."
+            android:text="Como funciona:\n1. Clique em 'Conceder Permissões' para autorizar sobreposição, áudio e captura da TV.\n2. Inicie o monitoramento. A flag permanecerá sempre visível no canto da tela (Escutando áudio -> Processando -> Checando fatos -> Card de alerta)."
             android:textColor="@color/text_secondary"
-            android:textSize="11sp"
+            android:textSize="12sp"
+            android:lineSpacingExtra="4dp"
             android:layout_marginTop="16dp" />
 
     </LinearLayout>

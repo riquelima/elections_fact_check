@@ -9,33 +9,28 @@ Aplicativo nativo para **Android TV, Google TV e TV Box** que realiza **checagem
 1. **Escuta Ambiente em Segundo Plano:** Um `ForegroundService` com trava `WakeLock` no Android TV captura o áudio ambiente da TV através do microfone integrado da Smart TV ou microfone USB.
 2. **Filtragem & Detecção de Alegações Fatuais:** O pipeline analisa os blocos de áudio e descarta conversas informais, piadas e comerciais, isolando apenas alegações que exigem checagem.
 3. **Análise Crítica com Inteligência Artificial:** O texto é submetido ao motor de IA neural para confrontar o que foi dito com dados oficiais e agências de checagem.
-4. **Pílula de Status Ambiente & Card Flutuante (Overlay):** Uma pílula discreta no canto superior direito indica a escuta ativa (`🟢 🎙️ Ouvindo TV...`). Se a informação for identificada como **FALSA**, **ENGANOSA** ou **VERDADEIRA**, o card expande suavemente com a correção e a fonte oficial e recolhe de volta.
+4. **Pílula de Status Ambiente & Card Flutuante (Overlay):** Uma flag discreta no canto superior direito permanece contínua durante todo o monitoramento com 3 estados limpos (`Escutando áudio` -> `Processando` -> `Checando fatos`). Se a informação for identificada como **FALSA**, **ENGANOSA** ou **VERDADEIRA**, o card expande suavemente com a correção e a fonte oficial e recolhe de volta.
 
 ---
 
 ## 🚀 Como Compilar o APK Automaticamente (GitHub Actions)
 
-O projeto inclui a automação do **GitHub Actions** em `.github/workflows/build-apk.yml`, compilando o arquivo oficial **`TVFactChecker_v1.2.0.apk`** diretamente na nuvem.
+O projeto inclui a automação do **GitHub Actions** em `.github/workflows/build-apk.yml`, compilando o arquivo oficial **`TVFactChecker_v1.2.1.apk`** diretamente na nuvem.
 
 ---
 
 ## 📲 Como Instalar o APK na sua Android TV / uniTV
 
-1. Baixe o arquivo **`TVFactChecker_v1.2.0.apk`** da aba **Releases**.
+1. Baixe o arquivo **`TVFactChecker_v1.2.1.apk`** da aba **Releases**.
 2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
 3. Abra um gerenciador de arquivos na TV e instale o APK.
-4. Conceda as permissões de microfone, sobreposição de tela e captura de tela.
-5. Inicie o monitoramento!
+4. Conceda as permissões com o Botão 1 e inicie o monitoramento com o Botão 2!
 
 ---
 
-## ⚙️ Permissões Necessárias na TV
+## ⚙️ Interface Simplificada para Controle Remoto (2 Botões)
 
-Ao abrir o app pela primeira vez com o controle remoto:
-1. **Permissão de Microfone:** Clique em Permitir para que o app consiga ouvir o áudio das caixas de som da TV.
-2. **Sobreposição de Tela (Desenhar sobre outros apps):**
-   * Clique no botão **"Conceder Permissão de Sobreposição"**.
-   * O Android TV abrirá a tela do sistema. Marque a chave para **Permitir**.
-   * *Isso é o que permite que a pílula e o card apareçam por cima da TV aberta, uniTV ou qualquer outro canal.*
-3. **Teste:** Clique em **"Testar Alerta na TV"** para ver a notificação flutuante aparecer imediatamente na tela.
-4. **Ativação:** Clique em **"Iniciar Monitoramento em Segundo Plano"** e saia para o canal de TV aberta ou uniTV normalmente. O serviço continuará ativo.
+1. **Botão 1: Conceder Permissões da TV**
+   * Concede sobreposição sobre outros apps/canais (uniTV, TV aberta) e acesso ao microfone.
+2. **Botão 2: Iniciar / Parar Monitoramento em Segundo Plano**
+   * Liga o monitoramento em segundo plano. A flag flutuante ficará no canto da tela alternando suavemente entre `Escutando áudio`, `Processando` e `Checando fatos` antes de exibir o card de alerta na TV.

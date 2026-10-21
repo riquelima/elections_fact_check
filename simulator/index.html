@@ -662,26 +662,20 @@
           <div class="right-col">
             <div class="menu-header">PAINEL DE CONTROLE DA TV</div>
 
-            <!-- Button 1: Toggle Monitoring (Selected by default) -->
-            <button class="tv-btn focused" id="menuBtn0" onclick="triggerAction(0)">
-              <span class="btn-icon">▶</span>
-              <span id="btn0Text">Iniciar Monitoramento em Segundo Plano</span>
-            </button>
-
-            <!-- Button 2: Test Overlay -->
-            <button class="tv-btn" id="menuBtn1" onclick="triggerAction(1)">
-              <span class="btn-icon">⚡</span>
-              <span>Testar Alerta na TV (Simulação)</span>
-            </button>
-
-            <!-- Button 3: Grant Overlay -->
-            <button class="tv-btn" id="menuBtn2" onclick="triggerAction(2)">
+            <!-- Button 1: Grant TV Permissions -->
+            <button class="tv-btn" id="menuBtn0" onclick="triggerAction(0)">
               <span class="btn-icon">🛡️</span>
-              <span id="btn2Text">✓ Permissão de Sobreposição Ativa</span>
+              <span id="btn0Text">1. Conceder Permissões da TV</span>
+            </button>
+
+            <!-- Button 2: Toggle Monitoring -->
+            <button class="tv-btn focused" id="menuBtn1" onclick="triggerAction(1)">
+              <span class="btn-icon">▶</span>
+              <span id="btn1Text">Iniciar Monitoramento em Segundo Plano</span>
             </button>
 
             <p class="btn-hint-text">
-              ✨ <strong>Destaque em Verde &amp; Borda Branca:</strong> O botão selecionado expande e se ilumina para que você nunca se perca no controle remoto!
+              ✨ <strong>Controle Simplificado da TV:</strong> Apenas 2 botões para máxima usabilidade no controle remoto!
             </p>
           </div>
         </div>
@@ -711,13 +705,13 @@
           <!-- 1. PERSISTENT AMBIENT HUD / PILL (ALWAYS VISIBLE IN CORNER) -->
           <div class="ambient-hud-pill" id="ambientHudPill">
             <div class="pulsing-dot"></div>
-            <span class="ambient-text" id="ambientHudText">🎙️ Ouvindo TV...</span>
+            <span class="ambient-text" id="ambientHudText">Escutando áudio</span>
           </div>
 
           <!-- 2. THE EXPANDED FACT CHECK CARD (APPEARS ON FALSE/MISLEADING CLAIM) -->
           <div class="tv-overlay-card" id="tvOverlay">
             <div class="overlay-header">
-              <span class="overlay-badge" id="cardBadge">🔴 FALSO</span>
+              <span class="overlay-badge" id="cardBadge">FALSO</span>
               <span class="overlay-timer" id="cardTimer">12s</span>
             </div>
             <div class="overlay-label">OUVIDO NA TV:</div>
@@ -772,11 +766,10 @@
   </main>
 
   <script>
-    let focusedIndex = 0;
-    const totalButtons = 3;
+    let focusedIndex = 1;
+    const totalButtons = 2;
     let isMonitoring = true; // Inicia ativo para visualização imediata
     let timerInterval = null;
-    let ambientCycleInterval = null;
 
     function updateFocus() {
       for (let i = 0; i < totalButtons; i++) {
@@ -805,33 +798,34 @@
 
     function triggerAction(idx) {
       if (idx === 0) {
+        // Conceder permissões
+        const btn0 = document.getElementById('btn0Text');
+        btn0.innerText = '✓ Permissões da TV Concedidas';
+        alert("✓ Todas as permissões da TV (sobreposição e áudio) concedidas!");
+      } else if (idx === 1) {
         // Toggle service
         isMonitoring = !isMonitoring;
         const statusVal = document.getElementById('tvStatusIndicator');
         const statusText = document.getElementById('tvStatusText');
         const statusDot = document.getElementById('tvStatusDot');
-        const btn0Text = document.getElementById('btn0Text');
+        const btn1Text = document.getElementById('btn1Text');
         const ambientPill = document.getElementById('ambientHudPill');
+        const hudText = document.getElementById('ambientHudText');
 
         if (isMonitoring) {
           statusVal.classList.add('running');
           statusText.innerText = 'Monitoramento ATIVO (Ouvindo a TV)';
           statusDot.innerText = '●';
-          btn0Text.innerText = 'Parar Monitoramento';
+          btn1Text.innerText = 'Parar Monitoramento';
           ambientPill.style.display = 'flex';
+          hudText.innerText = 'Escutando áudio';
         } else {
           statusVal.classList.remove('running');
           statusText.innerText = 'Monitoramento DESATIVADO';
           statusDot.innerText = '○';
-          btn0Text.innerText = 'Iniciar Monitoramento em Segundo Plano';
+          btn1Text.innerText = 'Iniciar Monitoramento em Segundo Plano';
           ambientPill.style.display = 'none';
         }
-      } else if (idx === 1) {
-        // Test overlay
-        switchMode('tv');
-        showOverlayOnTv("O Brasil registrou zero inflação nos últimos 12 meses.", "Dados do IPCA / IBGE apontam inflação acumulada de 4,2% no período.", "IBGE / Banco Central");
-      } else if (idx === 2) {
-        alert("✓ Permissão de sobreposição já concedida e ativa!");
       }
     }
 
@@ -854,21 +848,25 @@
       }
     }
 
-    function showOverlayOnTv(claim, fact, source) {
+    function showOverlayOnTv(claim, fact, source, verdict) {
       const overlay = document.getElementById('tvOverlay');
       const cardClaim = document.getElementById('cardClaim');
       const cardFact = document.getElementById('cardFact');
       const cardSource = document.getElementById('cardSource');
       const cardTimer = document.getElementById('cardTimer');
+      const cardBadge = document.getElementById('cardBadge');
+      const hudText = document.getElementById('ambientHudText');
 
       cardClaim.innerText = `"${claim}"`;
       cardFact.innerText = fact;
       cardSource.innerText = `Fonte: ${source}`;
+      cardBadge.innerText = verdict || "FALSO";
+      hudText.innerText = verdict || "FALSO";
 
       overlay.style.display = 'block';
 
       clearInterval(timerInterval);
-      let secondsLeft = 12;
+      let secondsLeft = 14;
       cardTimer.innerText = `${secondsLeft}s`;
 
       timerInterval = setInterval(() => {
@@ -877,45 +875,50 @@
         if (secondsLeft <= 0) {
           clearInterval(timerInterval);
           overlay.style.display = 'none';
+          hudText.innerText = 'Escutando áudio';
         }
       }, 1000);
     }
 
     function simulateTvSpeech() {
       switchMode('tv');
+      const hudText = document.getElementById('ambientHudText');
+
       const examples = [
         {
           claim: "O desemprego no país caiu para 0% no último trimestre.",
           fact: "A taxa real de desocupação apurada pelo IBGE (PNAD Contínua) foi de 6,8% no trimestre analisado.",
-          source: "IBGE / PNAD Contínua"
+          source: "IBGE / PNAD Contínua",
+          verdict: "FALSO"
         },
         {
           claim: "A vacinação contra febre amarela foi banida pela Anvisa.",
           fact: "A Anvisa e o Ministério da Saúde mantêm a vacina no calendário oficial como segura e recomendada.",
-          source: "Anvisa / Ministério da Saúde"
+          source: "Anvisa / Ministério da Saúde",
+          verdict: "FALSO"
         },
         {
-          claim: "Não há desmatamento na Amazônia desde o ano passado.",
-          fact: "Sistemas do INPE (Deter/Prodes) monitoraram mais de 5.000 km² sob alerta de desmatamento.",
-          source: "INPE / TerraBrasilis"
+          claim: "O Ministério da Fazenda confirmou superávit primário nas contas públicas.",
+          fact: "Relatório oficial do Tesouro Nacional confirma superávit primário registrado no período divulgado.",
+          source: "Tesouro Nacional / Ministério da Fazenda",
+          verdict: "VERDADEIRO"
         }
       ];
 
       const ex = examples[Math.floor(Math.random() * examples.length)];
       document.getElementById('liveTickerText').innerText = `"${ex.claim}"`;
-      showOverlayOnTv(ex.claim, ex.fact, ex.source);
-    }
 
-    // Dynamic Ambient Status Cycle
-    const ambientTexts = ["🎙️ Ouvindo TV...", "✓ Proteção Ativa", "⚡ Monitorando Fatos"];
-    let ambIdx = 0;
-    setInterval(() => {
-      if (isMonitoring) {
-        ambIdx = (ambIdx + 1) % ambientTexts.length;
-        const hudText = document.getElementById('ambientHudText');
-        if (hudText) hudText.innerText = ambientTexts[ambIdx];
-      }
-    }, 8000);
+      // 1. Estado 1: Escutando áudio -> 2. Processando -> 3. Checando fatos -> Card
+      hudText.innerText = "Processando";
+
+      setTimeout(() => {
+        hudText.innerText = "Checando fatos";
+
+        setTimeout(() => {
+          showOverlayOnTv(ex.claim, ex.fact, ex.source, ex.verdict);
+        }, 1200);
+      }, 1000);
+    }
 
     // Keyboard DPAD listeners
     window.addEventListener('keydown', (e) => {

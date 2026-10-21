@@ -41,7 +41,8 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            requestScreenCapturePermission()
+            updateServiceUI()
+            Toast.makeText(this, "Permissão de microfone concedida com sucesso!", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "Permissão de microfone necessária para ouvir a TV", Toast.LENGTH_LONG).show()
         }
@@ -56,15 +57,25 @@ class MainActivity : AppCompatActivity() {
         setupListeners()
         updateServiceUI()
 
-        // Garante que o primeiro botão já comece focado para navegação imediata do controle remoto
-        binding.btnToggleService.post {
-            binding.btnToggleService.requestFocus()
+        // Dá foco automático ao botão de conceder permissões (se faltar alguma) ou ao botão de iniciar
+        binding.root.post {
+            if (!hasAllPermissions()) {
+                binding.btnGrantPermissions.requestFocus()
+            } else {
+                binding.btnToggleService.requestFocus()
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
         updateServiceUI()
+    }
+
+    private fun hasAllPermissions(): Boolean {
+        val hasOverlay = Settings.canDrawOverlays(this)
+        val hasAudio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        return hasOverlay && hasAudio
     }
 
     /**
@@ -81,14 +92,29 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnGrantPermissions.onFocusChangeListener = tvFocusListener
         binding.btnToggleService.onFocusChangeListener = tvFocusListener
-        binding.btnTestOverlay.onFocusChangeListener = tvFocusListener
-        binding.btnTestPolitical.onFocusChangeListener = tvFocusListener
-        binding.btnCaptureManchete.onFocusChangeListener = tvFocusListener
-        binding.btnGrantOverlay.onFocusChangeListener = tvFocusListener
     }
 
     private fun setupListeners() {
+        // Botão 1: Conceder todas as permissões da TV (Sobreposição e Áudio)
+        binding.btnGrantPermissions.setOnClickListener {
+            if (!Settings.canDrawOverlays(this)) {
+                Toast.makeText(this, "Ative a permissão de sobreposição para exibir alertas sobre a TV", Toast.LENGTH_LONG).show()
+                requestOverlayPermission()
+                return@setOnClickListener
+            }
+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                return@setOnClickListener
+            }
+
+            Toast.makeText(this, "Todas as permissões da TV já estão ativas e concedidas!", Toast.LENGTH_SHORT).show()
+            updateServiceUI()
+        }
+
+        // Botão 2: Iniciar ou Parar Monitoramento em Segundo Plano
         binding.btnToggleService.setOnClickListener {
             if (FactCheckForegroundService.isRunning) {
                 stopMonitoringService()
@@ -96,70 +122,21 @@ class MainActivity : AppCompatActivity() {
                 checkPermissionsAndStart()
             }
         }
-
-        binding.btnTestOverlay.setOnClickListener {
-            if (!Settings.canDrawOverlays(this)) {
-                requestOverlayPermission()
-                return@setOnClickListener
-            }
-
-            // Dispara teste visual de notificação flutuante na TV
-            val intent = Intent(this, FactCheckForegroundService::class.java).apply {
-                action = FactCheckForegroundService.ACTION_TRIGGER_TEST
-            }
-            startService(intent)
-            Toast.makeText(this, "Exibindo card de simulação na TV...", Toast.LENGTH_SHORT).show()
-        }
-
-        binding.btnTestPolitical.setOnClickListener {
-            if (!Settings.canDrawOverlays(this)) {
-                requestOverlayPermission()
-                return@setOnClickListener
-            }
-
-            // Dispara teste de debate político (Lula x Flávio Bolsonaro)
-            val intent = Intent(this, FactCheckForegroundService::class.java).apply {
-                action = FactCheckForegroundService.ACTION_TRIGGER_POLITICAL_TEST
-            }
-            startService(intent)
-            Toast.makeText(this, "Exibindo checagem de debate político na TV...", Toast.LENGTH_SHORT).show()
-        }
-
-        binding.btnCaptureManchete.setOnClickListener {
-            if (!Settings.canDrawOverlays(this)) {
-                requestOverlayPermission()
-                return@setOnClickListener
-            }
-
-            // Dispara leitura e checagem da manchete da TV
-            val intent = Intent(this, FactCheckForegroundService::class.java).apply {
-                action = FactCheckForegroundService.ACTION_CAPTURE_MANCHETE
-            }
-            startService(intent)
-            Toast.makeText(this, "📺 Lendo e checando manchete da TV...", Toast.LENGTH_SHORT).show()
-        }
-
-        binding.btnGrantOverlay.setOnClickListener {
-            if (Settings.canDrawOverlays(this)) {
-                Toast.makeText(this, "✓ Permissão de sobreposição já concedida e ativa!", Toast.LENGTH_SHORT).show()
-            } else {
-                requestOverlayPermission()
-            }
-        }
     }
 
     private fun checkPermissionsAndStart() {
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Conceda permissão de sobreposição para exibir alertas sobre a TV aberta e uniTV", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Conceda permissão de sobreposição para exibir alertas sobre a TV", Toast.LENGTH_LONG).show()
             requestOverlayPermission()
             return
         }
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        } else {
-            requestScreenCapturePermission()
+            return
         }
+
+        requestScreenCapturePermission()
     }
 
     private fun requestScreenCapturePermission() {
@@ -204,14 +181,12 @@ class MainActivity : AppCompatActivity() {
             binding.btnToggleService.text = getString(R.string.btn_start_service)
         }
 
-        if (Settings.canDrawOverlays(this)) {
-            binding.btnGrantOverlay.text = "✓ Permissão de Sobreposição Ativa"
-            binding.btnGrantOverlay.isEnabled = true
-            binding.btnGrantOverlay.setTextColor(Color.parseColor("#10B981"))
+        if (hasAllPermissions()) {
+            binding.btnGrantPermissions.text = "✓ Permissões da TV Concedidas"
+            binding.btnGrantPermissions.setTextColor(Color.parseColor("#10B981"))
         } else {
-            binding.btnGrantOverlay.text = getString(R.string.btn_permission_overlay)
-            binding.btnGrantOverlay.isEnabled = true
-            binding.btnGrantOverlay.setTextColor(Color.parseColor("#FFFFFF"))
+            binding.btnGrantPermissions.text = "1. Conceder Permissões da TV"
+            binding.btnGrantPermissions.setTextColor(Color.parseColor("#FFFFFF"))
         }
     }
 

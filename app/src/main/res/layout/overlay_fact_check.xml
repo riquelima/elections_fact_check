@@ -31,7 +31,7 @@
             android:id="@+id/tvAmbientStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🎙️ Ouvindo TV..."
+            android:text="Escutando áudio"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -61,7 +61,7 @@
                 android:id="@+id/tvVerdictBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔴 FALSO"
+                android:text="FALSO"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:textSize="14sp"

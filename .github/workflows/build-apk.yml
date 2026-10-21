@@ -38,40 +38,42 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
           # Encontra o APK gerado e copia com o nome padronizado oficial
           APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$APK_FILE" TVFactChecker_v1.2.0.apk
-          ls -lh TVFactChecker_v1.2.0.apk
+          cp "$APK_FILE" TVFactChecker_v1.2.1.apk
+          ls -lh TVFactChecker_v1.2.1.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVFactChecker_v1.2.0
-          path: TVFactChecker_v1.2.0.apk
+          name: TVFactChecker_v1.2.1
+          path: TVFactChecker_v1.2.1.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.2.0
-          name: TV Fact Checker v1.2.0
+          tag_name: v1.2.1
+          name: TV Fact Checker v1.2.1
           body: |
-            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.2.0)
+            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.2.1)
             
-            Versão oficial compilada: **TVFactChecker_v1.2.0.apk**
+            Versão oficial compilada: **TVFactChecker_v1.2.1.apk**
             
-            ### 🚀 Novidades da versão 1.2.0 (100% à prova de erros):
-            - **Captura do Som Real da TV + Filtros de Hardware:** Integração de `AudioPlaybackCaptureConfiguration` (captura direta do áudio digital dos canais em IPTV / uniTV sem passar pelo microfone) com fallback para microfone com cancelamento de eco acústico (`AcousticEchoCanceler`) e supressão de ruído (`NoiseSuppressor`). Elimina eco de caixas de som e ruídos da sala.
-            - **Ciclo Ágil de 16 Segundos (Ideal para Troca de Canais):** Ao mudar da TV aberta para uniTV/IPTV, o sistema detecta o novo canal em 16 segundos, sem misturar áudio de canais diferentes nem esperar tempos longos.
-            - **Print da Tela em HD 720p (1280x720):** Resolução aumentada para HD 720p garantindo nitidez absoluta na leitura das tarjas, gerador de caracteres (GC), números, datas e manchetes exibidas na tela.
-            - **Fusão Multissensorial Prioritária:** Se o áudio tiver ruído ambiente da sala, a IA prioriza automaticamente a manchete escrita na tela para checar a informação com 100% de exatidão.
-            - **Cards para VERDADEIRO, FALSO e ENGANOSO:** Exibição firme do card com veredito oficial sem interrupções (14s a 16s com cronômetro).
+            ### 🚀 Novidades da versão 1.2.1:
+            - **Interface com Apenas 2 Botões:** Interface simplificada para controle remoto da TV com apenas 2 botões principais:
+              1. **1. Conceder Permissões da TV** (autoriza sobreposição sobre apps/canais e microfone).
+              2. **2. Iniciar / Parar Monitoramento em Segundo Plano**.
+            - **Flag Flutuante Sempre Visível sem Emojis:** A flag ambiente no canto superior direito permanece contínua na tela da TV durante todo o monitoramento com apenas 3 estados de texto limpos:
+              1. `Escutando áudio`
+              2. `Processando`
+              3. `Checando fatos`
+            - **Exibição do Card:** Logo após os 3 estados, o card se expande automaticamente com os badges limpos (`VERDADEIRO`, `FALSO`, `ENGANOSO`), texto da afirmação e veredito checado com agências oficiais.
             
             ### Como instalar na sua TV / uniTV:
-            1. Baixe o arquivo **`TVFactChecker_v1.2.0.apk`** abaixo.
+            1. Baixe o arquivo **`TVFactChecker_v1.2.1.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
-            4. Conceda as permissões de sobreposição de tela, microfone e captura de tela.
-            5. Inicie o monitoramento!
-          files: TVFactChecker_v1.2.0.apk
+            4. Conceda as permissões com o Botão 1 e inicie com o Botão 2!
+          files: TVFactChecker_v1.2.1.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

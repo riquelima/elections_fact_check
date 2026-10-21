@@ -96,7 +96,7 @@ class StreamingAudioRecordManager(
         isStreaming = true
         isAnalyzing = false
 
-        mainHandler.post { onStatusChanged("🎙️ Ouvindo TV ao vivo...") }
+        mainHandler.post { onStatusChanged("Escutando áudio") }
 
         streamJob = scope.launch {
             try {
@@ -104,7 +104,7 @@ class StreamingAudioRecordManager(
 
                 if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
                     Log.e("AudioStream", "AudioRecord não pôde ser inicializado pelo hardware")
-                    mainHandler.post { onStatusChanged("⚠️ Microfone indisponível") }
+                    mainHandler.post { onStatusChanged("Escutando áudio") }
                     return@launch
                 }
 
@@ -139,7 +139,7 @@ class StreamingAudioRecordManager(
                                 launch(Dispatchers.IO) {
                                     try {
                                         mainHandler.post {
-                                            if (!isAnalyzing) onStatusChanged("⚡ Processando áudio do canal...")
+                                            if (!isAnalyzing) onStatusChanged("Processando")
                                         }
                                         val wavBytes = pcmToWav(pcmBytes)
                                         val transcript = miniMaxClient.transcribeAudioChunk(wavBytes)
@@ -164,7 +164,7 @@ class StreamingAudioRecordManager(
                 }
             } catch (e: Exception) {
                 Log.e("AudioStream", "Erro no loop de streaming de áudio: ${e.message}", e)
-                mainHandler.post { onStatusChanged("🎙️ Reconectando áudio...") }
+                mainHandler.post { onStatusChanged("Escutando áudio") }
             } finally {
                 releaseAudioRecord()
             }

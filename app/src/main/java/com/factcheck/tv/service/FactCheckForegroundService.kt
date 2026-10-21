@@ -104,7 +104,7 @@ class FactCheckForegroundService : LifecycleService() {
     private fun captureAndCheckManchete() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                overlayManager.updateAmbientStatus("📺 Lendo Manchete e Tela da TV...")
+                overlayManager.updateAmbientStatus("Processando")
                 val headline = mancheteScanner.getTopBreakingHeadline()
                 val textToCheck = if (!headline.isNullOrBlank()) {
                     "MANCHETE EXIBIDA NA TELA DA TV: $headline"
@@ -112,11 +112,11 @@ class FactCheckForegroundService : LifecycleService() {
                     "LEITURA VISUAL DA TELA DA TV: Analise a manchete, tarja e dados visíveis no gerador de caracteres da TV."
                 }
                 Log.i("FactCheckService", "MANCHETE/TELA CAPTURADA: \"$textToCheck\"")
-                overlayManager.updateAmbientStatus("⚡ Checando tela da TV...")
+                overlayManager.updateAmbientStatus("Checando fatos")
                 processLiveTranscript(textToCheck)
             } catch (e: Exception) {
                 Log.e("FactCheckService", "Erro ao capturar manchete: ${e.message}")
-                overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
+                overlayManager.updateAmbientStatus("Escutando áudio")
             }
         }
     }
@@ -203,7 +203,7 @@ class FactCheckForegroundService : LifecycleService() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 Log.i("FactCheckService", "ÁUDIO/TELA DO CANAL ATUAL: \"$spokenText\"")
-                overlayManager.updateAmbientStatus("⚡ Verificando canal atual...")
+                overlayManager.updateAmbientStatus("Checando fatos")
 
                 // 1. Tira print HD 720p da tela da TV para ler tarjas, GC e manchetes
                 val screenshot = screenCaptureManager.getLatestScreenshotBase64()
@@ -233,13 +233,11 @@ class FactCheckForegroundService : LifecycleService() {
                     Log.i("FactCheckService", "VEREDITO: ${result.verdict} | ${result.claimText} -> ${result.verifiedFact}")
                     overlayManager.showFactCheckAlert(result)
                 } else {
-                    overlayManager.updateAmbientStatus("✓ Canal conferido")
-                    delay(2500)
-                    overlayManager.updateAmbientStatus("🎙️ Ouvindo TV ao vivo...")
+                    overlayManager.updateAmbientStatus("Escutando áudio")
                 }
             } catch (e: Exception) {
                 Log.e("FactCheckService", "Erro ao processar checagem: ${e.message}")
-                overlayManager.updateAmbientStatus("🎙️ Ouvindo TV ao vivo...")
+                overlayManager.updateAmbientStatus("Escutando áudio")
             } finally {
                 streamingAudioManager?.isAnalyzing = false
             }
