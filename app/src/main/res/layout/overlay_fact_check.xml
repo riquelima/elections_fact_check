@@ -1,99 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/overlayRoot"
-    android:layout_width="480dp"
+    android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@drawable/bg_overlay_card"
-    android:padding="20dp"
-    android:elevation="12dp">
+    android:gravity="end"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <!-- Header: Status Badge & App Title -->
+    <!-- 1. COMPACT AMBIENT PILL (Always visible in corner when monitoring TV) -->
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:id="@+id/ambientPill"
+        android:layout_width="wrap_content"
+        android:layout_height="38dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="12dp">
+        android:background="@drawable/bg_ambient_pill"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="6dp"
+        android:elevation="14dp">
+
+        <View
+            android:id="@+id/dotPulse"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:background="@drawable/dot_pulse_green"
+            android:layout_marginEnd="8dp" />
 
         <TextView
-            android:id="@+id/tvVerdictBadge"
+            android:id="@+id/tvAmbientStatus"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🔴 FALSO"
+            android:text="🎙️ Ouvindo TV..."
             android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:background="#EF4444"
-            android:paddingHorizontal="10dp"
-            android:paddingVertical="4dp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text=" TV FACT CHECKER"
-            android:textColor="@color/text_secondary"
             android:textSize="12sp"
-            android:textStyle="bold"
-            android:layout_marginStart="8dp" />
+            android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvTimer"
+            android:id="@+id/tvAmbientCounter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="10s"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
+            android:text=" • IA Ativa"
+            android:textColor="#10B981"
+            android:textSize="11sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- Heard on TV Section -->
-    <TextView
-        android:layout_width="match_parent"
+    <!-- 2. EXPANDED FACT-CHECK ALERT CARD (Expands when claim is false/misleading) -->
+    <LinearLayout
+        android:id="@+id/expandedAlertCard"
+        android:layout_width="440dp"
         android:layout_height="wrap_content"
-        android:text="OUVIDO NA TV:"
-        android:textColor="@color/text_secondary"
-        android:textSize="11sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:background="@drawable/bg_overlay_card"
+        android:padding="18dp"
+        android:elevation="18dp"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
 
-    <TextView
-        android:id="@+id/tvClaimText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="\&quot;O Brasil registrou zero casos no último trimestre.\&quot;"
-        android:textColor="#E2E8F0"
-        android:textSize="14sp"
-        android:textStyle="italic"
-        android:layout_marginTop="2dp"
-        android:layout_marginBottom="10dp" />
+        <!-- Header: Status Badge & App Title -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="10dp">
 
-    <!-- Fact Check Verdict Section -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="FATO VERIFICADO:"
-        android:textColor="@color/primary"
-        android:textSize="11sp"
-        android:textStyle="bold" />
+            <TextView
+                android:id="@+id/tvVerdictBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔴 FALSO"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:background="#EF4444"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp" />
 
-    <TextView
-        android:id="@+id/tvFactText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Dados oficiais do Ministério mostram que houve mais de 12.000 registros no período."
-        android:textColor="#FFFFFF"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:layout_marginTop="2dp" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text=" TV FACT CHECKER"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:layout_marginStart="8dp" />
 
-    <!-- Source Citation -->
-    <TextView
-        android:id="@+id/tvSourceText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Fonte: Ministério da Saúde / Agências de Checagem"
-        android:textColor="@color/secondary"
-        android:textSize="11sp"
-        android:layout_marginTop="8dp" />
+            <TextView
+                android:id="@+id/tvTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10s"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Heard on TV Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="OUVIDO NA TV:"
+            android:textColor="@color/text_secondary"
+            android:textSize="10.5sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvClaimText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="\&quot;O Brasil registrou zero casos no último trimestre.\&quot;"
+            android:textColor="#E2E8F0"
+            android:textSize="13.5sp"
+            android:textStyle="italic"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Fact Check Verdict Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="FATO VERIFICADO:"
+            android:textColor="@color/primary"
+            android:textSize="10.5sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvFactText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dados oficiais do Ministério mostram que houve mais de 12.000 registros no período."
+            android:textColor="#FFFFFF"
+            android:textSize="13.5sp"
+            android:textStyle="bold"
+            android:layout_marginTop="2dp" />
+
+        <!-- Source Citation -->
+        <TextView
+            android:id="@+id/tvSourceText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Fonte: Ministério da Saúde / Agências de Checagem"
+            android:textColor="@color/secondary"
+            android:textSize="11sp"
+            android:layout_marginTop="6dp" />
+
+    </LinearLayout>
 
 </LinearLayout>

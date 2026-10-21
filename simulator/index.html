@@ -266,7 +266,7 @@
       line-height: 1.4;
     }
 
-    /* VIEW 2: Simulated Live TV Channel (GloboNews) */
+    /* VIEW 2: Simulated Live TV Channel (GloboNews / uniTV) */
     .view-globonews {
       width: 100%;
       height: 100%;
@@ -372,26 +372,73 @@
       text-overflow: ellipsis;
     }
 
-    /* THE FLOATING FACT CHECK OVERLAY CARD (NATIVE ON TV SCREEN) */
-    .tv-overlay-card {
+    /* ========================================================
+       PERSISTENT AMBIENT HUD / PILL (TOP-RIGHT OVERLAY)
+       ======================================================== */
+    .ambient-hud-pill {
       position: absolute;
       top: 24px;
       right: 28px;
-      width: 380px;
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1.5px solid var(--accent);
+      padding: 8px 16px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.2);
+      z-index: 100;
+      transition: all 0.3s;
+    }
+
+    .pulsing-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.85); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .ambient-text {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .ambient-tag {
+      font-size: 11px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* THE EXPANDED FACT CHECK CARD */
+    .tv-overlay-card {
+      position: absolute;
+      top: 72px;
+      right: 28px;
+      width: 400px;
+      background: rgba(15, 23, 42, 0.96);
       backdrop-filter: blur(16px);
       border: 2px solid #ef4444;
       border-radius: 16px;
       padding: 18px;
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8);
       display: none;
       animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      z-index: 100;
+      z-index: 101;
     }
 
     @keyframes slideIn {
-      from { transform: translateX(50px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      from { transform: translateY(-20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
 
     .overlay-header {
@@ -582,7 +629,7 @@
     </h1>
     <div class="mode-switch">
       <button class="btn-mode active" id="btnModeApp" onclick="switchMode('app')">📱 Tela do App na TV</button>
-      <button class="btn-mode" id="btnModeTv" onclick="switchMode('tv')">📡 GloboNews (TV Aberta ao Vivo)</button>
+      <button class="btn-mode" id="btnModeTv" onclick="switchMode('tv')">📡 GloboNews / uniTV (TV ao Vivo)</button>
     </div>
   </header>
 
@@ -598,7 +645,7 @@
           <div class="left-col">
             <div class="logo-box">🛡️</div>
             <h2 class="app-title">TV Fact Checker AI</h2>
-            <p class="app-sub">Fact-checking em tempo real para TV aberta com MiniMax AI</p>
+            <p class="app-sub">Fact-checking em tempo real para TV aberta e uniTV com MiniMax AI</p>
 
             <div class="status-panel">
               <div class="status-label">STATUS DO SISTEMA</div>
@@ -639,7 +686,7 @@
           </div>
         </div>
 
-        <!-- VIEW 2: Simulated Live TV Channel (GloboNews) with Overlay -->
+        <!-- VIEW 2: Simulated Live TV Channel (GloboNews / uniTV) with Overlay -->
         <div class="view-globonews" id="viewTv">
           <div class="tv-studio-bg">
             <div class="studio-silhouette">
@@ -650,7 +697,7 @@
 
           <div class="tv-watermark">
             <span class="badge-live-tv">AO VIVO</span>
-            <span class="channel-name">GLOBO NEWS</span>
+            <span class="channel-name">GLOBO NEWS • uniTV</span>
           </div>
 
           <!-- Bottom News Ticker -->
@@ -661,11 +708,18 @@
             </span>
           </div>
 
-          <!-- The Floating Overlay Card (Draw Over Other Apps) -->
+          <!-- 1. PERSISTENT AMBIENT HUD / PILL (ALWAYS VISIBLE IN CORNER) -->
+          <div class="ambient-hud-pill" id="ambientHudPill">
+            <div class="pulsing-dot"></div>
+            <span class="ambient-text" id="ambientHudText">🎙️ Ouvindo TV...</span>
+            <span class="ambient-tag" id="ambientHudTag">• IA Ativa</span>
+          </div>
+
+          <!-- 2. THE EXPANDED FACT CHECK CARD (APPEARS ON FALSE/MISLEADING CLAIM) -->
           <div class="tv-overlay-card" id="tvOverlay">
             <div class="overlay-header">
               <span class="overlay-badge" id="cardBadge">🔴 FALSO</span>
-              <span class="overlay-timer" id="cardTimer">10s</span>
+              <span class="overlay-timer" id="cardTimer">12s</span>
             </div>
             <div class="overlay-label">OUVIDO NA TV:</div>
             <div class="overlay-claim" id="cardClaim">
@@ -721,8 +775,9 @@
   <script>
     let focusedIndex = 0;
     const totalButtons = 3;
-    let isMonitoring = false;
+    let isMonitoring = true; // Inicia ativo para visualização imediata
     let timerInterval = null;
+    let ambientCycleInterval = null;
 
     function updateFocus() {
       for (let i = 0; i < totalButtons; i++) {
@@ -757,24 +812,27 @@
         const statusText = document.getElementById('tvStatusText');
         const statusDot = document.getElementById('tvStatusDot');
         const btn0Text = document.getElementById('btn0Text');
+        const ambientPill = document.getElementById('ambientHudPill');
 
         if (isMonitoring) {
           statusVal.classList.add('running');
           statusText.innerText = 'Monitoramento ATIVO (Ouvindo a TV)';
           statusDot.innerText = '●';
           btn0Text.innerText = 'Parar Monitoramento';
+          ambientPill.style.display = 'flex';
         } else {
           statusVal.classList.remove('running');
           statusText.innerText = 'Monitoramento DESATIVADO';
           statusDot.innerText = '○';
           btn0Text.innerText = 'Iniciar Monitoramento em Segundo Plano';
+          ambientPill.style.display = 'none';
         }
       } else if (idx === 1) {
         // Test overlay
         switchMode('tv');
         showOverlayOnTv("O Brasil registrou zero inflação nos últimos 12 meses.", "Dados do IPCA / IBGE apontam inflação acumulada de 4,2% no período.", "IBGE / Banco Central");
       } else if (idx === 2) {
-        alert("Permissão de sobreposição (SYSTEM_ALERT_WINDOW) já está ativa!");
+        alert("✓ Permissão de sobreposição já concedida e ativa!");
       }
     }
 
@@ -811,7 +869,7 @@
       overlay.style.display = 'block';
 
       clearInterval(timerInterval);
-      let secondsLeft = 10;
+      let secondsLeft = 12;
       cardTimer.innerText = `${secondsLeft}s`;
 
       timerInterval = setInterval(() => {
@@ -848,6 +906,17 @@
       document.getElementById('liveTickerText').innerText = `"${ex.claim}"`;
       showOverlayOnTv(ex.claim, ex.fact, ex.source);
     }
+
+    // Dynamic Ambient Status Cycle
+    const ambientTexts = ["🎙️ Ouvindo TV...", "✓ Proteção Ativa", "⚡ Monitorando Fatos"];
+    let ambIdx = 0;
+    setInterval(() => {
+      if (isMonitoring) {
+        ambIdx = (ambIdx + 1) % ambientTexts.length;
+        const hudText = document.getElementById('ambientHudText');
+        if (hudText) hudText.innerText = ambientTexts[ambIdx];
+      }
+    }, 8000);
 
     // Keyboard DPAD listeners
     window.addEventListener('keydown', (e) => {

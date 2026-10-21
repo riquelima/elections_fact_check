@@ -97,13 +97,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnGrantOverlay.setOnClickListener {
-            requestOverlayPermission()
+            if (Settings.canDrawOverlays(this)) {
+                Toast.makeText(this, "✓ Permissão de sobreposição já concedida e ativa!", Toast.LENGTH_SHORT).show()
+            } else {
+                requestOverlayPermission()
+            }
         }
     }
 
     private fun checkPermissionsAndStart() {
         if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Conceda permissão de sobreposição para exibir alertas sobre a TV aberta", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Conceda permissão de sobreposição para exibir alertas sobre a TV aberta e uniTV", Toast.LENGTH_LONG).show()
             requestOverlayPermission()
             return
         }
@@ -121,7 +125,7 @@ class MainActivity : AppCompatActivity() {
             putExtra(FactCheckForegroundService.EXTRA_API_KEY, EMBEDDED_MINIMAX_KEY)
         }
         startForegroundService(intent)
-        updateServiceUI()
+        binding.root.postDelayed({ updateServiceUI() }, 300)
     }
 
     private fun stopMonitoringService() {
@@ -129,7 +133,7 @@ class MainActivity : AppCompatActivity() {
             action = FactCheckForegroundService.ACTION_STOP
         }
         startService(intent)
-        updateServiceUI()
+        binding.root.postDelayed({ updateServiceUI() }, 300)
     }
 
     private fun updateServiceUI() {
@@ -146,7 +150,7 @@ class MainActivity : AppCompatActivity() {
 
         if (Settings.canDrawOverlays(this)) {
             binding.btnGrantOverlay.text = "✓ Permissão de Sobreposição Ativa"
-            binding.btnGrantOverlay.isEnabled = false
+            binding.btnGrantOverlay.isEnabled = true
             binding.btnGrantOverlay.setTextColor(Color.parseColor("#10B981"))
         } else {
             binding.btnGrantOverlay.text = getString(R.string.btn_permission_overlay)

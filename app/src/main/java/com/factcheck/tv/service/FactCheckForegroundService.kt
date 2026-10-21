@@ -68,9 +68,19 @@ class FactCheckForegroundService : LifecycleService() {
     }
 
     private var speechRecognitionManager: com.factcheck.tv.audio.SpeechRecognitionManager? = null
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     private fun startForegroundMonitoring() {
         if (isRunning) return
+
+        try {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "TVFactChecker::WakeLock").apply {
+                acquire(24 * 60 * 60 * 1000L)
+            }
+        } catch (e: Exception) {
+            Log.e("FactCheckService", "Erro ao obter WakeLock: ${e.message}")
+        }
 
         val notification = buildPersistentNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -80,6 +90,9 @@ class FactCheckForegroundService : LifecycleService() {
         }
         isRunning = true
         Log.i("FactCheckService", "Monitoramento em segundo plano iniciado na TV")
+
+        // Exibe imediatamente a pílula de monitoramento no canto da tela (sobreposta na TV aberta / uniTV)
+        overlayManager.showAmbientPill()
 
         // Inicializa reconhecimento de voz nativo contínuo em português (pt-BR)
         speechRecognitionManager = com.factcheck.tv.audio.SpeechRecognitionManager(this) { spokenText ->
@@ -124,7 +137,15 @@ class FactCheckForegroundService : LifecycleService() {
         speechRecognitionManager = null
         audioCaptureManager?.stopCapture()
         audioCaptureManager = null
-        overlayManager.hideAlert()
+        overlayManager.hideAll()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            Log.e("FactCheckService", "Erro ao liberar WakeLock: ${e.message}")
+        }
+        wakeLock = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         Log.i("FactCheckService", "Monitoramento parado.")
