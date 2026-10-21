@@ -79,31 +79,38 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
     }
 
     /**
-     * Envia o áudio transcrito da TV para verificar contra agências de fact-checking e bases oficiais
-     * utilizando o modelo mais potente MiniMax-M3.1-Flash com 1 milhão de tokens de contexto.
+     * Envia o áudio transcrito da TV e print da tela para verificar contra agências de fact-checking e bases oficiais
+     * utilizando o modelo multimodal MiniMax-M3.1-Flash com 1 milhão de tokens de contexto.
      */
-    suspend fun checkTranscript(transcript: String, evidenceContext: String = ""): FactCheckResult? = withContext(Dispatchers.IO) {
+    suspend fun checkTranscript(
+        transcript: String,
+        evidenceContext: String = "",
+        screenshotBase64: String? = null
+    ): FactCheckResult? = withContext(Dispatchers.IO) {
         if (transcript.isBlank() || apiKey.isBlank()) {
             return@withContext null
         }
 
         val systemPrompt = """
-            Você é o motor de checagem em tempo real especializado em debates políticos, eleições e telejornalismo ao vivo no Brasil (GloboNews, TV Globo, CNN Brasil, BandNews).
-            Suas fontes de referência mandatárias são as agências certificadas pela IFCN (Agência Lupa, Aos Fatos, Projeto Comprova, G1 Fato ou Fake, UOL Confere, Estadão Verifica, Reuters Fact Check) e órgãos oficiais de Estado (TSE, STF, IBGE, Banco Central do Brasil, CGU, Ministério da Fazenda, Congresso Nacional).
+            Você é o motor de checagem em tempo real especializado em telejornalismo ao vivo (GloboNews, TV aberta, CNN Brasil) e debates políticos no Brasil.
+            Suas fontes de referência mandatárias são as agências de checagem brasileiras certificadas (Agência Lupa, Aos Fatos, Projeto Comprova, G1 Fato ou Fake) e órgãos oficiais de Estado (TSE, STF, IBGE, Banco Central, Ministérios).
 
-            Sua missão é analisar o trecho exato ouvido da transmissão da TV:
-            1. Se houver alegação factual, dados econômicos, citações sobre adversários políticos, declarações de campanha ou medidas de governo, classifique o veredito estritamente como:
-               - "FALSO" (informação comprovadamente incorreta, inventada ou distorcida).
-               - "ENGANOSO" (dado fora de contexto, exagero desmentido ou informação incompleta).
-               - "VERDADEIRO" (fato real condizente com as apurações e dados oficiais).
-            2. Seja extremamente conciso e direto. A síntese no verified_fact deve ter no máximo 2 frases curtas para leitura dinâmica na tela da TV.
-            3. Indique a fonte de autoridade ("source") (ex: "Aos Fatos", "Agência Lupa", "TSE", "G1 Fato ou Fake", "IBGE", "Projeto Comprova").
-            4. Se o trecho não contiver nenhuma alegação factual verificável (apenas comentários informais, saudações, piadas), retorne "has_claim": false.
+            DIRETRIZ DE VERIFICAÇÃO MANDATÁRIA:
+            1. O telespectador está assistindo à TV ao vivo. Sempre que houver uma notícia, debate, manchete na tela ou declaração de interesse público (política, economia, índices, declarações de Lula, Bolsonaro, ministros, etc.), defina SEMPRE "has_claim": true!
+            2. O telespectador quer ver o card na tela tanto para notícias VERDADEIRAS quanto FALSAS ou ENGANOSAS:
+               - "VERDADEIRO": a informação dita ou mostrada condiz com a realidade, dados oficiais ou fatos apurados.
+               - "FALSO": a informação é incorreta, boato ou comprovadamente desmentida.
+               - "ENGANOSO": dado fora de contexto, exagero tendencioso ou distorção.
+            3. Tanto para "VERDADEIRO", "FALSO" ou "ENGANOSO", mantenha SEMPRE "has_claim": true para que o card correspondente (verde, vermelho ou amarelo) seja projetado na tela da TV!
+            4. Se uma imagem da tela da TV (screenshot) for fornecida, leia prioritariamente as tarjas, o gerador de caracteres (GC), números e gráficos exibidos no televisor para confirmar o contexto da notícia.
+            5. "claim_text": o que foi dito ou exibido na TV (frase curta e clara).
+            6. "verified_fact": a explicação factual em 1 ou 2 frases com os dados reais confirmados ou corrigidos.
+            7. Apenas retorne "has_claim": false se o áudio for exclusivamente silêncio, música de fundo, ou saudações curtas ("boa noite", "olá") sem nenhuma notícia ou fato associado.
 
             Responda EXCLUSIVAMENTE em formato JSON com o seguinte schema:
             {
               "has_claim": true,
-              "verdict": "FALSO" | "ENGANOSO" | "VERDADEIRO",
+              "verdict": "VERDADEIRO" | "FALSO" | "ENGANOSO",
               "claim_text": "...",
               "verified_fact": "...",
               "source": "...",
@@ -117,10 +124,14 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
             promptBuilder.append("\n\n").append(evidenceContext)
         }
 
-        return@withContext executeChatQuery(systemPrompt, promptBuilder.toString())
+        return@withContext executeChatQuery(systemPrompt, promptBuilder.toString(), screenshotBase64)
     }
 
-    private fun executeChatQuery(systemPrompt: String, userPrompt: String): FactCheckResult? {
+    private fun executeChatQuery(
+        systemPrompt: String,
+        userPrompt: String,
+        screenshotBase64: String? = null
+    ): FactCheckResult? {
         val requestPayload = JsonObject().apply {
             addProperty("model", "MiniMax-M3.1-Flash")
             addProperty("reasoning_effort", "low") // Otimiza a profundidade de pensamento para resposta ultrarrápida na TV
@@ -130,10 +141,30 @@ class MiniMaxClient(private var apiKey: String = DEFAULT_KEY) {
                     addProperty("role", "system")
                     addProperty("content", systemPrompt)
                 })
-                add(JsonObject().apply {
+
+                val userMessage = JsonObject().apply {
                     addProperty("role", "user")
-                    addProperty("content", userPrompt)
-                })
+                    if (screenshotBase64.isNullOrBlank()) {
+                        addProperty("content", userPrompt)
+                    } else {
+                        val contentArray = com.google.gson.JsonArray().apply {
+                            add(JsonObject().apply {
+                                addProperty("type", "text")
+                                addProperty("text", userPrompt)
+                            })
+                            add(JsonObject().apply {
+                                addProperty("type", "image_url")
+                                val imgObj = JsonObject().apply {
+                                    addProperty("url", screenshotBase64)
+                                    addProperty("detail", "low")
+                                }
+                                add("image_url", imgObj)
+                            })
+                        }
+                        add("content", contentArray)
+                    }
+                }
+                add(userMessage)
             }
             add("messages", messagesArray)
         }

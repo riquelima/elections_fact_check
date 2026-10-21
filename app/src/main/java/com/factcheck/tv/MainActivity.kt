@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -24,11 +25,23 @@ class MainActivity : AppCompatActivity() {
         const val EMBEDDED_MINIMAX_KEY = "sk-cp-meaN0PHZdGi3-5gZffia9b6PyDIh27vyk54LwG6gw965dFLWoIHowFo19rTqoHdbxhaQezJlMMBgTEYhNni51sJnMWCcPHIKtCg4GRY-pGMmrXarNIxxGQA"
     }
 
+    private val pendingMediaProjectionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val resultCode = result.resultCode
+        val data = result.data
+        if (resultCode == RESULT_OK && data != null) {
+            startMonitoringService(resultCode, data)
+        } else {
+            startMonitoringService(null, null)
+        }
+    }
+
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            startMonitoringService()
+            requestScreenCapturePermission()
         } else {
             Toast.makeText(this, "Permissão de microfone necessária para ouvir a TV", Toast.LENGTH_LONG).show()
         }
@@ -145,14 +158,27 @@ class MainActivity : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         } else {
-            startMonitoringService()
+            requestScreenCapturePermission()
         }
     }
 
-    private fun startMonitoringService() {
+    private fun requestScreenCapturePermission() {
+        try {
+            val mpManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            pendingMediaProjectionLauncher.launch(mpManager.createScreenCaptureIntent())
+        } catch (e: Exception) {
+            startMonitoringService(null, null)
+        }
+    }
+
+    private fun startMonitoringService(projectionResultCode: Int? = null, projectionData: Intent? = null) {
         val intent = Intent(this, FactCheckForegroundService::class.java).apply {
             action = FactCheckForegroundService.ACTION_START
             putExtra(FactCheckForegroundService.EXTRA_API_KEY, EMBEDDED_MINIMAX_KEY)
+            if (projectionResultCode != null && projectionData != null) {
+                putExtra(FactCheckForegroundService.EXTRA_PROJECTION_RESULT_CODE, projectionResultCode)
+                putExtra(FactCheckForegroundService.EXTRA_PROJECTION_DATA, projectionData)
+            }
         }
         startForegroundService(intent)
         binding.root.postDelayed({ updateServiceUI() }, 300)

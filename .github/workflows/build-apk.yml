@@ -38,39 +38,39 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
           # Encontra o APK gerado e copia com o nome padronizado oficial
           APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$APK_FILE" TVFactChecker_v1.0.8.apk
-          ls -lh TVFactChecker_v1.0.8.apk
+          cp "$APK_FILE" TVFactChecker_v1.0.9.apk
+          ls -lh TVFactChecker_v1.0.9.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVFactChecker_v1.0.8
-          path: TVFactChecker_v1.0.8.apk
+          name: TVFactChecker_v1.0.9
+          path: TVFactChecker_v1.0.9.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.8
-          name: TV Fact Checker v1.0.8
+          tag_name: v1.0.9
+          name: TV Fact Checker v1.0.9
           body: |
-            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.0.8)
+            ## 📺 TV Fact Checker - APK Oficial para Android TV (v1.0.9)
             
-            Versão oficial compilada: **TVFactChecker_v1.0.8.apk**
+            Versão oficial compilada: **TVFactChecker_v1.0.9.apk**
             
-            ### 🚀 Evolução da versão 1.0.8 (MiniMax-M3.1-Flash):
-            - **Modelo Mais Potente da MiniMax (`MiniMax-M3.1-Flash`):** Atualizado para o modelo de fronteira mais recente, com janela de contexto estendida de **1 milhão de tokens (1M)** e capacidades de raciocínio profundo para checagem em tempo real de política, economia e eleições brasileiras.
-            - **Otimização Extrema de Latência (`reasoning_effort: "low"`):** Ajuste fino do esforço de raciocínio da IA para cortar o tempo de resposta em mais de 60%, gerando o veredito quase instantaneamente para exibição na TV ao vivo.
-            - **Dual Endpoint com Failover Automático:** Roteamento primário pelo endpoint global OpenAI-compatible (`api.minimax.io`) com contingência automática para `api.minimaxi.chat` caso haja instabilidade de rede na TV.
-            - **Parser de Resposta Blindado:** Suporte aos campos separados `reasoning_content` e `content`, com isolamento estrito de JSON e remoção de tags de pensamento.
+            ### 🚀 Novidades da versão 1.0.9:
+            - **Print da Tela em Tempo Real (Contexto Multimodal com Visão Computacional):** No momento em que a IA valida a informação ouvida da TV, um print da tela (640x360) é capturado pelo sistema operacional via `MediaProjection` e enviado junto à fala para a IA processar manchetes, tarjas, números, GC (gerador de caracteres) e gráficos da emissora.
+            - **Exibição Obrigatória de Cards para Fatos Verdadeiros (`VERDADEIRO`):** O card flutuante agora sempre é projetado na tela para notícias verdadeiras (`🟢 VERDADEIRO` com 9s de exibição), além de notícias falsas (`🔴 FALSO`) e enganosas (`🟡 ENGANOSO`), corrigindo a omissão anterior onde notícias verdadeiras não expandiam o card.
+            - **Thread Dedicada de Captura e Zero Sobrecarga de CPU:** A captura de frames roda em thread separada com throttling de 1 frame/s e reciclagem contínua de memória Bitmap, garantindo navegação 100% fluida na TV.
+            - **Suporte Total a TV Aberta, GloboNews, uniTV e TV Box.**
             
             ### Como instalar na sua TV / uniTV:
-            1. Baixe o arquivo **`TVFactChecker_v1.0.8.apk`** abaixo.
+            1. Baixe o arquivo **`TVFactChecker_v1.0.9.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
-            4. Conceda as permissões de sobreposição de tela e microfone.
+            4. Conceda as permissões de sobreposição de tela, microfone e captura de tela.
             5. Inicie o monitoramento!
-          files: TVFactChecker_v1.0.8.apk
+          files: TVFactChecker_v1.0.9.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

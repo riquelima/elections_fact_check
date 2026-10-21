@@ -18,6 +18,7 @@ import com.factcheck.tv.api.FactCheckResult
 import com.factcheck.tv.api.MiniMaxClient
 import com.factcheck.tv.audio.SpeechRecognitionManager
 import com.factcheck.tv.audio.StreamingAudioRecordManager
+import com.factcheck.tv.capture.ScreenCaptureManager
 import com.factcheck.tv.overlay.FactCheckOverlayManager
 import com.factcheck.tv.sources.FactCheckSourcesManager
 import com.factcheck.tv.sources.MancheteScannerManager
@@ -31,6 +32,7 @@ class FactCheckForegroundService : LifecycleService() {
     private lateinit var miniMaxClient: MiniMaxClient
     private lateinit var sourcesManager: FactCheckSourcesManager
     private lateinit var mancheteScanner: MancheteScannerManager
+    private lateinit var screenCaptureManager: ScreenCaptureManager
     private var streamingAudioManager: StreamingAudioRecordManager? = null
     private var speechRecognitionManager: SpeechRecognitionManager? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -47,6 +49,8 @@ class FactCheckForegroundService : LifecycleService() {
         const val ACTION_CAPTURE_MANCHETE = "com.factcheck.tv.CAPTURE_MANCHETE"
 
         const val EXTRA_API_KEY = "extra_api_key"
+        const val EXTRA_PROJECTION_RESULT_CODE = "extra_projection_result_code"
+        const val EXTRA_PROJECTION_DATA = "extra_projection_data"
 
         var isRunning = false
             private set
@@ -58,6 +62,7 @@ class FactCheckForegroundService : LifecycleService() {
         miniMaxClient = MiniMaxClient()
         sourcesManager = FactCheckSourcesManager()
         mancheteScanner = MancheteScannerManager()
+        screenCaptureManager = ScreenCaptureManager(this)
         createNotificationChannel()
     }
 
@@ -68,6 +73,14 @@ class FactCheckForegroundService : LifecycleService() {
             ACTION_START -> {
                 val apiKey = intent.getStringExtra(EXTRA_API_KEY) ?: ""
                 miniMaxClient.updateApiKey(apiKey)
+
+                val projResultCode = intent.getIntExtra(EXTRA_PROJECTION_RESULT_CODE, -1)
+                @Suppress("DEPRECATION")
+                val projData = intent.getParcelableExtra<Intent>(EXTRA_PROJECTION_DATA)
+                if (projResultCode != -1 && projData != null) {
+                    screenCaptureManager.initialize(projResultCode, projData)
+                }
+
                 startForegroundMonitoring()
             }
             ACTION_STOP -> {
@@ -90,17 +103,16 @@ class FactCheckForegroundService : LifecycleService() {
     private fun captureAndCheckManchete() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                overlayManager.updateAmbientStatus("📺 Lendo Manchete da TV...")
+                overlayManager.updateAmbientStatus("📺 Lendo Manchete e Tela da TV...")
                 val headline = mancheteScanner.getTopBreakingHeadline()
-                if (!headline.isNullOrBlank()) {
-                    Log.i("FactCheckService", "MANCHETE CAPTURADA DA TV: \"$headline\"")
-                    overlayManager.updateAmbientStatus("⚡ Checando: \"${headline.take(22)}...\"")
-                    processLiveTranscript("MANCHETE EXIBIDA NA TELA DA TV: $headline")
+                val textToCheck = if (!headline.isNullOrBlank()) {
+                    "MANCHETE EXIBIDA NA TELA DA TV: $headline"
                 } else {
-                    overlayManager.updateAmbientStatus("⚠️ Nenhuma manchete no momento")
-                    delay(3000)
-                    overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
+                    "LEITURA VISUAL DA TELA DA TV: Analise a manchete, tarja e dados visíveis no gerador de caracteres da TV."
                 }
+                Log.i("FactCheckService", "MANCHETE/TELA CAPTURADA: \"$textToCheck\"")
+                overlayManager.updateAmbientStatus("⚡ Checando tela da TV...")
+                processLiveTranscript(textToCheck)
             } catch (e: Exception) {
                 Log.e("FactCheckService", "Erro ao capturar manchete: ${e.message}")
                 overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
@@ -122,7 +134,11 @@ class FactCheckForegroundService : LifecycleService() {
 
         val notification = buildPersistentNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            var serviceType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            if (screenCaptureManager.isInitialized) {
+                serviceType = serviceType or android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            }
+            startForeground(NOTIFICATION_ID, notification, serviceType)
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
@@ -177,8 +193,9 @@ class FactCheckForegroundService : LifecycleService() {
     }
 
     /**
-     * Processa estritamente o áudio ouvido da TV em tempo real.
-     * Cruza com as agências de checagem (Aos Fatos, Agência Lupa, G1 Fato ou Fake, TSE, IBGE) e exibe o veredito.
+     * Processa o áudio e a imagem da tela da TV em tempo real.
+     * Cruza com as agências de checagem (Aos Fatos, Agência Lupa, G1 Fato ou Fake, TSE, IBGE)
+     * e exibe o veredito no card flutuante tanto para notícias verdadeiras quanto falsas/enganosas.
      */
     private fun processLiveTranscript(spokenText: String) {
         lifecycleScope.launch(Dispatchers.IO) {
@@ -186,21 +203,37 @@ class FactCheckForegroundService : LifecycleService() {
                 Log.i("FactCheckService", "ÁUDIO OUVIDO NA TV: \"$spokenText\"")
                 overlayManager.updateAmbientStatus("⚡ Checando: \"${spokenText.take(20)}...\"")
 
-                // 1. Busca evidências nas maiores agências de fact-checking do Brasil (Aos Fatos, Agência Lupa)
+                // 1. Tira print da tela da TV no momento da checagem para capturar tarjas, GC e manchetes
+                val screenshot = screenCaptureManager.getLatestScreenshotBase64()
+                if (screenshot != null) {
+                    Log.i("FactCheckService", "📸 Print da tela capturado (${screenshot.length} bytes base64)")
+                }
+
+                // 2. Busca evidências nas maiores agências de fact-checking do Brasil (Aos Fatos, Agência Lupa)
                 val evidence = sourcesManager.findRelevantEvidence(spokenText)
 
-                // 2. Envia para o motor neural confrontar a declaração com as agências e bases oficiais
-                val result = miniMaxClient.checkTranscript(spokenText, evidence)
-                if (result != null && result.hasClaim) {
-                    Log.i("FactCheckService", "VEREDITO: ${result.verdict} | Fonte: ${result.source}")
+                // 3. Envia para o motor neural multimodal com fala + print da tela da TV + fontes
+                val result = miniMaxClient.checkTranscript(spokenText, evidence, screenshot)
+
+                // O card DEVE ser exibido na TV tanto para fatos VERDADEIROS quanto FALSOS ou ENGANOSOS!
+                val isVerifiable = result != null && (
+                    result.hasClaim ||
+                    result.verdict.equals("VERDADEIRO", ignoreCase = true) ||
+                    result.verdict.equals("FALSO", ignoreCase = true) ||
+                    result.verdict.equals("ENGANOSO", ignoreCase = true) ||
+                    (result.claimText.isNotBlank() && result.verifiedFact.isNotBlank())
+                )
+
+                if (isVerifiable && result != null) {
+                    Log.i("FactCheckService", "VEREDITO: ${result.verdict} | ${result.claimText} -> ${result.verifiedFact}")
                     overlayManager.showFactCheckAlert(result)
                 } else {
-                    overlayManager.updateAmbientStatus("✓ Sem alegações falsas")
+                    overlayManager.updateAmbientStatus("✓ Informação verificada")
                     delay(3000)
                     overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
                 }
             } catch (e: Exception) {
-                Log.e("FactCheckService", "Erro ao processar transcrição: ${e.message}")
+                Log.e("FactCheckService", "Erro ao processar checagem: ${e.message}")
                 overlayManager.updateAmbientStatus("🎙️ Ouvindo TV...")
             }
         }
@@ -235,6 +268,8 @@ class FactCheckForegroundService : LifecycleService() {
 
         headlineJob?.cancel()
         headlineJob = null
+
+        screenCaptureManager.release()
 
         streamingAudioManager?.stopStreaming()
         streamingAudioManager = null
