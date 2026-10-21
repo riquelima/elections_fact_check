@@ -24,6 +24,14 @@
     <uses-feature
         android:name="android.hardware.microphone"
         android:required="false" />
+    <!-- Package Visibility Queries for Android 11+ Speech Recognition -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <package android:name="com.google.android.katniss" />
+        <package android:name="com.google.android.googlequicksearchbox" />
+    </queries>
 
     <application
         android:allowBackup="true"

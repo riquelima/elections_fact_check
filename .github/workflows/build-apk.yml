@@ -38,33 +38,39 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
           # Encontra o APK gerado e copia com o nome padronizado oficial
           APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
-          cp "$APK_FILE" TVFactChecker_v1.0.1.apk
-          ls -lh TVFactChecker_v1.0.1.apk
+          cp "$APK_FILE" TVFactChecker_v1.0.2.apk
+          ls -lh TVFactChecker_v1.0.2.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVFactChecker_v1.0.1
-          path: TVFactChecker_v1.0.1.apk
+          name: TVFactChecker_v1.0.2
+          path: TVFactChecker_v1.0.2.apk
           if-no-files-found: error
 
       - name: Create GitHub Release (on main/master)
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.1
-          name: TV Fact Checker v1.0.1
+          tag_name: v1.0.2
+          name: TV Fact Checker v1.0.2
           body: |
-            ## 📺 TV Fact Checker AI - APK Oficial para Android TV
+            ## 📺 TV Fact Checker AI - APK Oficial para Android TV (v1.0.2)
             
-            Versão oficial compilada: **TVFactChecker_v1.0.1.apk**
+            Versão oficial compilada: **TVFactChecker_v1.0.2.apk**
+            
+            ### Novidades da versão 1.0.2:
+            - **Radar Automático de Notícias:** Dispara checagens factuais ativas periodicamente mesmo se o microfone da TV estiver silencioso ou sem captação.
+            - **Exibição de Fatos Verdadeiros:** Agora exibe cards de confirmação (verde) para informações oficiais e dados checados na GloboNews / TV aberta.
+            - **Telemetria ao Vivo no Pill:** Exibe o que está sendo ouvido em tempo real (`🎙️ "..."`, `⚡ Checando...`).
+            - **Compatibilidade Package Visibility (Android 11-14):** Correção do `<queries>` no manifest para reconhecer os serviços de voz da TV.
             
             ### Como instalar na sua TV / uniTV:
-            1. Baixe o arquivo **`TVFactChecker_v1.0.1.apk`** abaixo.
+            1. Baixe o arquivo **`TVFactChecker_v1.0.2.apk`** abaixo.
             2. Envie para a TV usando o app **Send Files to TV** ou via pendrive USB.
             3. Instale o APK e abra o aplicativo.
-            4. Conceda a permissão de sobreposição de tela e microfone.
+            4. Conceda as permissões de sobreposição de tela e microfone.
             5. Inicie o monitoramento!
-          files: TVFactChecker_v1.0.1.apk
+          files: TVFactChecker_v1.0.2.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

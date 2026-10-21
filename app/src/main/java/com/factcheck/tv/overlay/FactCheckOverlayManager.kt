@@ -26,11 +26,20 @@ class FactCheckOverlayManager(private val context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var pulseAnimator: ObjectAnimator? = null
-    private var ambientCycleRunnable: Runnable? = null
-    private var cycleIndex = 0
+    private var lastStatusUpdateTimestamp = 0L
 
     fun canDrawOverlays(): Boolean {
         return Settings.canDrawOverlays(context)
+    }
+
+    /**
+     * Atualiza o texto da pílula com o estado real do áudio e análise (ex: 'Ouvindo TV...', 'Analisando...').
+     */
+    fun updateAmbientStatus(statusText: String) {
+        lastStatusUpdateTimestamp = System.currentTimeMillis()
+        mainHandler.post {
+            overlayRootView?.findViewById<TextView>(R.id.tvAmbientStatus)?.text = statusText
+        }
     }
 
     /**
@@ -56,6 +65,7 @@ class FactCheckOverlayManager(private val context: Context) {
                 val expandedCard = view.findViewById<View>(R.id.expandedAlertCard)
 
                 expandedCard.visibility = View.GONE
+                tvAmbientStatus.text = "🎙️ Ouvindo TV..."
 
                 // Animação de respiração contínua no ponto verde
                 pulseAnimator = ObjectAnimator.ofFloat(dotPulse, "alpha", 1.0f, 0.3f, 1.0f).apply {
@@ -63,17 +73,6 @@ class FactCheckOverlayManager(private val context: Context) {
                     repeatCount = ObjectAnimator.INFINITE
                     start()
                 }
-
-                // Ciclo dinâmico de status a cada 10 segundos
-                val statusTexts = listOf("🎙️ Ouvindo TV...", "✓ Proteção Ativa", "⚡ Monitorando Fatos")
-                ambientCycleRunnable = object : Runnable {
-                    override fun run() {
-                        cycleIndex = (cycleIndex + 1) % statusTexts.size
-                        tvAmbientStatus.text = statusTexts[cycleIndex]
-                        mainHandler.postDelayed(this, 10000)
-                    }
-                }
-                mainHandler.postDelayed(ambientCycleRunnable!!, 10000)
 
                 // Layout flutuante sobreposto no topo direito da tela
                 val params = WindowManager.LayoutParams(
@@ -100,7 +99,7 @@ class FactCheckOverlayManager(private val context: Context) {
     }
 
     /**
-     * Expande o card com o veredito da checagem na TV por 12 segundos e recolhe de volta para a pílula.
+     * Expande o card com o veredito da checagem na TV (FALSO, ENGANOSO ou VERDADEIRO) e recolhe de volta para a pílula.
      */
     fun showFactCheckAlert(result: FactCheckResult) {
         if (!canDrawOverlays()) return
@@ -119,28 +118,32 @@ class FactCheckOverlayManager(private val context: Context) {
                 val tvClaim = view.findViewById<TextView>(R.id.tvClaimText)
                 val tvFact = view.findViewById<TextView>(R.id.tvFactText)
                 val tvSource = view.findViewById<TextView>(R.id.tvSourceText)
+                val tvAmbientStatus = view.findViewById<TextView>(R.id.tvAmbientStatus)
 
                 tvClaim.text = "\"${result.claimText}\""
                 tvFact.text = result.verifiedFact
                 tvSource.text = "Fonte: ${result.source}"
 
-                val (badgeText, badgeBgColor) = when (result.verdict.uppercase()) {
-                    "FALSO" -> Pair("🔴 FALSO", Color.parseColor("#EF4444"))
-                    "ENGANOSO" -> Pair("🟡 ENGANOSO / DISTORCIDO", Color.parseColor("#F59E0B"))
-                    "VERDADEIRO" -> Pair("🟢 VERDADEIRO", Color.parseColor("#10B981"))
-                    else -> Pair("ℹ️ FATO CHECADO", Color.parseColor("#3B82F6"))
+                val (badgeText, badgeBgColor, durationMs) = when (result.verdict.uppercase()) {
+                    "FALSO" -> Triple("🔴 FALSO", Color.parseColor("#EF4444"), 14000L)
+                    "ENGANOSO" -> Triple("🟡 ENGANOSO / DISTORCIDO", Color.parseColor("#F59E0B"), 14000L)
+                    "VERDADEIRO" -> Triple("🟢 VERDADEIRO", Color.parseColor("#10B981"), 9000L)
+                    else -> Triple("ℹ️ FATO CHECADO", Color.parseColor("#3B82F6"), 10000L)
                 }
+
                 tvBadge.text = badgeText
                 (tvBadge.background as? GradientDrawable)?.setColor(badgeBgColor)
                     ?: run { tvBadge.setBackgroundColor(badgeBgColor) }
 
-                // Mostra o card expandido
+                tvAmbientStatus.text = "⚡ $badgeText"
+
+                // Mostra o card expandido com animação suave
                 expandedCard.visibility = View.VISIBLE
                 expandedCard.alpha = 0.0f
                 expandedCard.animate().alpha(1.0f).setDuration(250).start()
 
                 dismissTimer?.cancel()
-                dismissTimer = object : CountDownTimer(12000, 1000) {
+                dismissTimer = object : CountDownTimer(durationMs, 1000) {
                     override fun onTick(millisUntilFinished: Long) {
                         tvTimer.text = "${millisUntilFinished / 1000}s"
                     }
@@ -149,6 +152,7 @@ class FactCheckOverlayManager(private val context: Context) {
                         // Recolhe de volta para a pílula ambiente
                         expandedCard.animate().alpha(0.0f).setDuration(250).withEndAction {
                             expandedCard.visibility = View.GONE
+                            tvAmbientStatus.text = "🎙️ Ouvindo TV..."
                         }.start()
                     }
                 }.start()
@@ -156,6 +160,7 @@ class FactCheckOverlayManager(private val context: Context) {
                 expandedCard.setOnClickListener {
                     dismissTimer?.cancel()
                     expandedCard.visibility = View.GONE
+                    tvAmbientStatus.text = "🎙️ Ouvindo TV..."
                 }
             }, 100)
         }
@@ -168,9 +173,6 @@ class FactCheckOverlayManager(private val context: Context) {
         mainHandler.post {
             dismissTimer?.cancel()
             dismissTimer = null
-
-            ambientCycleRunnable?.let { mainHandler.removeCallbacks(it) }
-            ambientCycleRunnable = null
 
             pulseAnimator?.cancel()
             pulseAnimator = null
